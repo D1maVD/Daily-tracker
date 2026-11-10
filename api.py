@@ -53,6 +53,9 @@ class CategoryBody(Base):
 class DeleteCatBody(Base):
     cat_id: int
 
+class DeleteSessionBody(Base):
+    session_id: int
+
 
 @app.get("/")
 async def index():
@@ -76,8 +79,8 @@ async def get_today(body: Base):
         active_data = {"category": cat, "start": start, "elapsed_seconds": elapsed}
 
     result = [
-        {"category": cat, "start": start, "end": end, "description": desc, "duration": dur}
-        for cat, start, end, desc, dur in sessions
+        {"id": sid, "category": cat, "start": start, "end": end, "description": desc, "duration": dur}
+        for sid, cat, start, end, desc, dur in sessions
     ]
     total = sum(s[4] for s in sessions if s[4])
     return {"sessions": result, "active": active_data, "total_minutes": total}
@@ -127,6 +130,13 @@ async def delete_category(body: DeleteCatBody):
     ok = await db.delete_category(user_id, body.cat_id)
     if not ok:
         raise HTTPException(status_code=404)
+    return {"ok": True}
+
+
+@app.post("/api/sessions/delete")
+async def delete_session(body: DeleteSessionBody):
+    user_id = verify(body.init_data)
+    await db.delete_session(user_id, body.session_id)
     return {"ok": True}
 
 

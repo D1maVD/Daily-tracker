@@ -140,11 +140,17 @@ async def get_active_session(user_id: int):
         return await cursor.fetchone()
 
 
+async def delete_session(user_id: int, session_id: int):
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute("DELETE FROM sessions WHERE id = ? AND user_id = ?", (session_id, user_id))
+        await db.commit()
+
+
 async def get_today_sessions(user_id: int) -> list:
     today = date.today().isoformat()
     async with aiosqlite.connect(DB_PATH) as db:
         cursor = await db.execute("""
-            SELECT category, start_time, end_time, description, duration_minutes
+            SELECT id, category, start_time, end_time, description, duration_minutes
             FROM sessions
             WHERE user_id = ? AND date = ? AND end_time IS NOT NULL
             ORDER BY start_time

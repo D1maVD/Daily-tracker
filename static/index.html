@@ -440,7 +440,15 @@
             ${s.description ? `<div class="session-desc">${s.description}</div>` : ""}
           </div>
           <div class="session-dur">${fmtMins(s.duration)}</div>
+          <button class="del-btn" data-id="${s.id}">✕</button>
         </div>`).join("");
+
+      list.querySelectorAll(".del-btn").forEach(btn => {
+        btn.addEventListener("click", async () => {
+          await api("/api/sessions/delete", { session_id: parseInt(btn.dataset.id) });
+          loadToday();
+        });
+      });
     }
   }
 
