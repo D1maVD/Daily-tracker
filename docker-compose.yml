@@ -1,0 +1,19 @@
+name: tracker-bot
+
+services:
+  bot:
+    build: .
+    container_name: tracker-bot
+    restart: unless-stopped
+    environment:
+      - BOT_TOKEN=${BOT_TOKEN}
+      - CHAT_ID=${CHAT_ID}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - DAILY_SUMMARY_TIME=${DAILY_SUMMARY_TIME:-21:00}
+      - DB_PATH=/data/tracker.db
+    volumes:
+      - tracker-bot-db:/data
+
+volumes:
+  tracker-bot-db:
+    name: tracker-bot-db

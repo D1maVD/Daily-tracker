@@ -1,0 +1,46 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: [self-hosted, macOS, X64]
+    concurrency:
+      group: deploy-tracker-bot
+      cancel-in-progress: false
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Синхронизировать исходники
+        run: |
+          set -euo pipefail
+          DEST="$HOME/projects/tracker-bot"
+          mkdir -p "$DEST"
+          rsync -a --delete --exclude '.git' --exclude '.env' ./ "$DEST/"
+
+      - name: Собрать и поднять контейнер
+        env:
+          BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
+          CHAT_ID: ${{ secrets.CHAT_ID }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          DAILY_SUMMARY_TIME: ${{ secrets.DAILY_SUMMARY_TIME }}
+        run: |
+          set -euo pipefail
+          cd "$HOME/projects/tracker-bot"
+          docker compose up -d --build --force-recreate
+
+      - name: Health check
+        run: |
+          set -euo pipefail
+          sleep 5
+          if docker ps --filter "name=tracker-bot" --filter "status=running" | grep tracker-bot; then
+            echo "Контейнер запущен"
+          else
+            docker logs --tail 50 tracker-bot || true
+            exit 1
+          fi
