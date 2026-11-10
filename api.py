@@ -1,4 +1,5 @@
 """FastAPI backend for the Tracker Mini App."""
+import calendar
 import hashlib
 import hmac
 import json
@@ -17,13 +18,7 @@ import db
 BOT_TOKEN = os.environ["BOT_TOKEN"]
 
 app = FastAPI()
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
 
 def verify(init_data: str) -> int:
@@ -56,6 +51,12 @@ class DeleteCatBody(Base):
 class DeleteSessionBody(Base):
     session_id: int
 
+class StatsPeriodBody(Base):
+    period: str = "week"
+
+class DayBody(Base):
+    date: str
+
 
 @app.get("/")
 async def index():
@@ -86,72 +87,85 @@ async def get_today(body: Base):
     return {"sessions": result, "active": active_data, "total_minutes": total}
 
 
-class StatsPeriodBody(Base):
-    period: str = "week"  # week | month | year
-
-class DayBody(Base):
-    date: str
-
-
 @app.post("/api/stats")
 async def get_stats(body: StatsPeriodBody):
     user_id = verify(body.init_data)
     today = date.today()
+
     async with aiosqlite.connect(db.DB_PATH) as conn:
 
         if body.period == "year":
-            cur = await conn.execute("""
-                SELECT strftime('%Y-%m', date) as m, SUM(duration_minutes)
-                FROM sessions
-                WHERE user_id = ? AND end_time IS NOT NULL
-                  AND date >= date('now', '-11 months', 'start of month')
-                GROUP BY m ORDER BY m
-            """, (user_id,))
-            rows = await cur.fetchall()
-            months = {r[0]: r[1] for r in rows if r[1]}
             result = []
-            for i in range(11, -1, -1):
-                from dateutil.relativedelta import relativedelta
-                d = (today.replace(day=1) - relativedelta(months=i))
-                key = d.strftime("%Y-%m")
+            for m in range(1, today.month + 1):
+                key = f"{today.year}-{m:02d}"
+                cur = await conn.execute("""
+                    SELECT SUM(duration_minutes) FROM sessions
+                    WHERE user_id = ? AND strftime('%Y-%m', date) = ? AND end_time IS NOT NULL
+                """, (user_id, key))
+                row = await cur.fetchone()
+                label = date(today.year, m, 1).strftime("%b")
                 result.append({
-                    "date": key,
-                    "label": d.strftime("%b"),
-                    "total_minutes": months.get(key, 0),
-                    "is_current": i == 0,
+                    "date": key, "label": label,
+                    "total_minutes": row[0] or 0,
+                    "is_current": m == today.month,
                 })
             return {"bars": result, "period": "year"}
 
-        days_count = 30 if body.period == "month" else 7
+        if body.period == "month":
+            # Дни текущего месяца с 1-го по сегодня (реальное кол-во дней)
+            result = []
+            for day in range(1, today.day + 1):
+                dt = date(today.year, today.month, day)
+                cur = await conn.execute("""
+                    SELECT SUM(duration_minutes) FROM sessions
+                    WHERE user_id = ? AND date = ? AND end_time IS NOT NULL
+                """, (user_id, dt.isoformat()))
+                row = await cur.fetchone()
+                label = str(day) if day == 1 or day % 5 == 0 or day == today.day else ""
+                result.append({
+                    "date": dt.isoformat(), "label": label,
+                    "total_minutes": row[0] or 0,
+                    "is_current": day == today.day,
+                })
+            return {"bars": result, "period": "month"}
+
+        # Неделя — последние 7 дней
         result = []
-        for i in range(days_count - 1, -1, -1):
-            d = (today - timedelta(days=i)).isoformat()
+        for i in range(6, -1, -1):
+            dt = today - timedelta(days=i)
             cur = await conn.execute("""
                 SELECT SUM(duration_minutes) FROM sessions
                 WHERE user_id = ? AND date = ? AND end_time IS NOT NULL
-            """, (user_id, d))
+            """, (user_id, dt.isoformat()))
             row = await cur.fetchone()
-            total = row[0] or 0
-            dt = today - timedelta(days=i)
-            if body.period == "month":
-                label = str(dt.day) if dt.day % 5 == 0 or i == 0 or i == days_count - 1 else ""
-            else:
-                label = dt.strftime("%a")
-            result.append({"date": d, "label": label, "total_minutes": total, "is_current": i == 0})
-
-    return {"bars": result, "period": body.period}
+            result.append({
+                "date": dt.isoformat(), "label": dt.strftime("%a"),
+                "total_minutes": row[0] or 0,
+                "is_current": i == 0,
+            })
+        return {"bars": result, "period": "week"}
 
 
 @app.post("/api/day")
 async def get_day_sessions(body: DayBody):
     user_id = verify(body.init_data)
+    # Для года приходит "YYYY-MM" — берём весь месяц
+    is_month = len(body.date) == 7
     async with aiosqlite.connect(db.DB_PATH) as conn:
-        cur = await conn.execute("""
-            SELECT id, category, start_time, end_time, description, duration_minutes
-            FROM sessions
-            WHERE user_id = ? AND date = ? AND end_time IS NOT NULL
-            ORDER BY start_time
-        """, (user_id, body.date))
+        if is_month:
+            cur = await conn.execute("""
+                SELECT id, category, start_time, end_time, description, duration_minutes
+                FROM sessions
+                WHERE user_id = ? AND strftime('%Y-%m', date) = ? AND end_time IS NOT NULL
+                ORDER BY start_time
+            """, (user_id, body.date))
+        else:
+            cur = await conn.execute("""
+                SELECT id, category, start_time, end_time, description, duration_minutes
+                FROM sessions
+                WHERE user_id = ? AND date = ? AND end_time IS NOT NULL
+                ORDER BY start_time
+            """, (user_id, body.date))
         rows = await cur.fetchall()
     total = sum(r[5] for r in rows if r[5])
     return {
