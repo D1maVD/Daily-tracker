@@ -1,16 +1,60 @@
 import html
+from typing import Any, Awaitable, Callable
 
-from aiogram import Router, F
-from aiogram.types import Message, CallbackQuery
+from aiogram import BaseMiddleware, Router, F
+from aiogram.types import Message, CallbackQuery, TelegramObject
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from datetime import datetime
 
 import db
-from keyboards import main_keyboard, category_keyboard
+from keyboards import main_keyboard, category_keyboard, consent_keyboard, confirm_delete_keyboard
 
 router = Router()
+
+
+class ConsentMiddleware(BaseMiddleware):
+    async def __call__(
+        self,
+        handler: Callable[[TelegramObject, dict[str, Any]], Awaitable[Any]],
+        event: TelegramObject,
+        data: dict[str, Any],
+    ) -> Any:
+        if isinstance(event, Message):
+            if event.text and event.text.startswith("/start"):
+                return await handler(event, data)
+            user_id = event.from_user.id
+        elif isinstance(event, CallbackQuery):
+            if event.data and event.data.startswith(("consent:", "delete:")):
+                return await handler(event, data)
+            user_id = event.from_user.id
+        else:
+            return await handler(event, data)
+
+        if not await db.is_consented(user_id):
+            if isinstance(event, Message):
+                await event.answer("Сначала дай согласие на хранение данных — нажми /start")
+            else:
+                await event.answer("Сначала дай согласие: /start", show_alert=True)
+            return
+
+        return await handler(event, data)
+
+
+router.message.middleware(ConsentMiddleware())
+router.callback_query.middleware(ConsentMiddleware())
+
+
+CONSENT_TEXT = (
+    "👋 Привет! Я трекер времени.\n\n"
+    "<b>Перед началом нужно твоё согласие на хранение данных:</b>\n\n"
+    "• Твой Telegram ID\n"
+    "• Сессии: время, категория, описание\n\n"
+    "Данные хранятся только на сервере бота и не передаются третьим лицам. "
+    "Удалить всё можно в любой момент командой /delete_data.\n\n"
+    "Соглашаешься?"
+)
 
 
 class SessionStates(StatesGroup):
@@ -19,6 +63,9 @@ class SessionStates(StatesGroup):
 
 @router.message(Command("start"))
 async def cmd_start(message: Message):
+    if not await db.is_consented(message.from_user.id):
+        await message.answer(CONSENT_TEXT, reply_markup=consent_keyboard(), parse_mode="HTML")
+        return
     active = await db.get_active_session(message.from_user.id)
     await message.answer(
         "👋 Привет! Я трекер времени.\n\n"
@@ -27,6 +74,48 @@ async def cmd_start(message: Message):
         "📊 День — итоги сегодня",
         reply_markup=main_keyboard(has_active=bool(active))
     )
+
+
+@router.callback_query(F.data == "consent:yes")
+async def consent_yes(callback: CallbackQuery):
+    await db.set_consent(callback.from_user.id)
+    await callback.message.edit_text("✅ Согласие получено. Добро пожаловать!", parse_mode="HTML")
+    await callback.message.answer(
+        "▶️ Старт — начать сессию\n"
+        "⏹ Стоп — завершить и записать\n"
+        "📊 День — итоги сегодня",
+        reply_markup=main_keyboard(has_active=False)
+    )
+    await callback.answer()
+
+
+@router.callback_query(F.data == "consent:no")
+async def consent_no(callback: CallbackQuery):
+    await callback.message.edit_text("❌ Хорошо. Данные не сохраняются, бот недоступен.")
+    await callback.answer()
+
+
+@router.message(Command("delete_data"))
+async def delete_data_cmd(message: Message):
+    await message.answer(
+        "⚠️ <b>Удалить все данные?</b>\n\n"
+        "Это удалит все твои сессии, категории и отзовёт согласие. Действие необратимо.",
+        reply_markup=confirm_delete_keyboard(),
+        parse_mode="HTML"
+    )
+
+
+@router.callback_query(F.data == "delete:confirm")
+async def delete_confirm(callback: CallbackQuery):
+    await db.revoke_consent(callback.from_user.id)
+    await callback.message.edit_text("🗑 Все данные удалены. Для повторного использования нажми /start.")
+    await callback.answer()
+
+
+@router.callback_query(F.data == "delete:cancel")
+async def delete_cancel(callback: CallbackQuery):
+    await callback.message.edit_text("Отмена. Данные сохранены.")
+    await callback.answer()
 
 
 @router.message(F.text == "▶️ Старт")

@@ -20,6 +20,13 @@ app = FastAPI()
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
 
+async def _verified_user(b: dict) -> int:
+    user_id = await _verified_user(b)
+    if not await db.is_consented(user_id):
+        raise HTTPException(status_code=403, detail="consent_required")
+    return user_id
+
+
 async def _body(request: Request) -> dict:
     """Read JSON body regardless of Content-Type. Works with text/plain, application/json, or none."""
     try:
@@ -56,7 +63,7 @@ async def index():
 @app.post("/api/today")
 async def get_today(request: Request):
     b = await _body(request)
-    user_id = verify(b.get("init_data", ""))
+    user_id = await _verified_user(b)
     sessions = await db.get_today_sessions(user_id)
     active = await db.get_active_session(user_id)
 
@@ -81,7 +88,7 @@ async def get_today(request: Request):
 @app.post("/api/stats")
 async def get_stats(request: Request):
     b = await _body(request)
-    user_id = verify(b.get("init_data", ""))
+    user_id = await _verified_user(b)
     period = b.get("period", "week")
     today = date.today()
 
@@ -127,7 +134,7 @@ async def get_stats(request: Request):
 @app.post("/api/day")
 async def get_day_sessions(request: Request):
     b = await _body(request)
-    user_id = verify(b.get("init_data", ""))
+    user_id = await _verified_user(b)
     day = b.get("date", "")
     is_month = len(day) == 7
     async with aiosqlite.connect(db.DB_PATH) as conn:
@@ -154,7 +161,7 @@ async def get_day_sessions(request: Request):
 @app.post("/api/categories/list")
 async def list_categories(request: Request):
     b = await _body(request)
-    user_id = verify(b.get("init_data", ""))
+    user_id = await _verified_user(b)
     rows = await db.get_categories(user_id)
     return {"categories": [{"id": r[0], "name": r[1]} for r in rows]}
 
@@ -162,7 +169,7 @@ async def list_categories(request: Request):
 @app.post("/api/categories/add")
 async def add_category(request: Request):
     b = await _body(request)
-    user_id = verify(b.get("init_data", ""))
+    user_id = await _verified_user(b)
     name = b.get("name", "").strip()[:50]
     if not name:
         raise HTTPException(status_code=400, detail="Name is required")
@@ -173,7 +180,7 @@ async def add_category(request: Request):
 @app.post("/api/categories/delete")
 async def delete_category(request: Request):
     b = await _body(request)
-    user_id = verify(b.get("init_data", ""))
+    user_id = await _verified_user(b)
     ok = await db.delete_category(user_id, int(b.get("cat_id", 0)))
     if not ok:
         raise HTTPException(status_code=404)
@@ -183,7 +190,7 @@ async def delete_category(request: Request):
 @app.post("/api/sessions/delete")
 async def delete_session(request: Request):
     b = await _body(request)
-    user_id = verify(b.get("init_data", ""))
+    user_id = await _verified_user(b)
     await db.delete_session(user_id, int(b.get("session_id", 0)))
     return {"ok": True}
 
@@ -191,7 +198,7 @@ async def delete_session(request: Request):
 @app.post("/api/start")
 async def start(request: Request):
     b = await _body(request)
-    user_id = verify(b.get("init_data", ""))
+    user_id = await _verified_user(b)
     category = b.get("category", "")
     if not category:
         raise HTTPException(status_code=400, detail="category required")
@@ -202,7 +209,7 @@ async def start(request: Request):
 @app.post("/api/stop")
 async def stop(request: Request):
     b = await _body(request)
-    user_id = verify(b.get("init_data", ""))
+    user_id = await _verified_user(b)
     desc = b.get("description", "").strip() or None
     duration = await db.stop_session(user_id, desc)
     return {"ok": True, "duration": duration}

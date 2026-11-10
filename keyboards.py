@@ -9,6 +9,20 @@ def main_keyboard(has_active: bool = False) -> ReplyKeyboardMarkup:
     return ReplyKeyboardMarkup(keyboard=rows, resize_keyboard=True)
 
 
+def consent_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(inline_keyboard=[[
+        InlineKeyboardButton(text="✅ Согласен", callback_data="consent:yes"),
+        InlineKeyboardButton(text="❌ Отказать", callback_data="consent:no"),
+    ]])
+
+
+def confirm_delete_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(inline_keyboard=[[
+        InlineKeyboardButton(text="🗑 Да, удалить всё", callback_data="delete:confirm"),
+        InlineKeyboardButton(text="Отмена", callback_data="delete:cancel"),
+    ]])
+
+
 def category_keyboard(categories: list) -> InlineKeyboardMarkup:
     buttons = [
         [InlineKeyboardButton(text=cat_name, callback_data=f"cat:{cat_id}")]

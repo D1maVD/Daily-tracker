@@ -442,7 +442,13 @@
 
   async function loadToday() {
     const res = await api("/api/today");
-    if (!res.ok) return;
+    if (!res.ok) {
+      if (res.status === 403) {
+        document.getElementById("status-card").innerHTML =
+          `<div class="status-idle">Откройте бот и дайте согласие на хранение данных</div>`;
+      }
+      return;
+    }
     const data = await res.json();
 
     const card = document.getElementById("status-card");

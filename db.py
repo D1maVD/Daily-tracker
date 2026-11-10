@@ -19,6 +19,12 @@ DEFAULT_CATEGORIES = [
 async def init_db():
     async with aiosqlite.connect(DB_PATH) as db:
         await db.execute("""
+            CREATE TABLE IF NOT EXISTS users (
+                user_id INTEGER PRIMARY KEY,
+                consented_at TEXT NOT NULL
+            )
+        """)
+        await db.execute("""
             CREATE TABLE IF NOT EXISTS sessions (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 user_id INTEGER NOT NULL,
@@ -38,6 +44,29 @@ async def init_db():
                 sort_order INTEGER DEFAULT 0
             )
         """)
+        await db.commit()
+
+
+async def is_consented(user_id: int) -> bool:
+    async with aiosqlite.connect(DB_PATH) as db:
+        cur = await db.execute("SELECT 1 FROM users WHERE user_id = ?", (user_id,))
+        return await cur.fetchone() is not None
+
+
+async def set_consent(user_id: int):
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute(
+            "INSERT OR IGNORE INTO users (user_id, consented_at) VALUES (?, ?)",
+            (user_id, now_utc().isoformat()),
+        )
+        await db.commit()
+
+
+async def revoke_consent(user_id: int):
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute("DELETE FROM sessions WHERE user_id = ?", (user_id,))
+        await db.execute("DELETE FROM categories WHERE user_id = ?", (user_id,))
+        await db.execute("DELETE FROM users WHERE user_id = ?", (user_id,))
         await db.commit()
 
 
