@@ -229,6 +229,11 @@
   const initData = tg?.initData || "";
   const headers = { "Content-Type": "application/json", "X-Init-Data": initData };
 
+  function fmtTime(isoStr) {
+    if (!isoStr) return "";
+    return new Date(isoStr).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  }
+
   // Nav
   document.querySelectorAll(".nav-item").forEach(btn => {
     btn.addEventListener("click", () => {
@@ -382,7 +387,7 @@
     } else {
       list.innerHTML = data.sessions.map(s => `
         <div class="session-item">
-          <div class="session-time">${s.start}</div>
+          <div class="session-time">${fmtTime(s.start)}</div>
           <div class="session-info">
             <div class="session-cat">${s.category}</div>
             ${s.description ? `<div class="session-desc">${s.description}</div>` : ""}

@@ -1,6 +1,9 @@
 import os
 import aiosqlite
-from datetime import datetime, date
+from datetime import datetime, date, timezone
+
+def now_utc():
+    return datetime.now(timezone.utc)
 
 DB_PATH = os.getenv("DB_PATH", "tracker.db")
 
@@ -84,7 +87,8 @@ async def delete_category(user_id: int, category_id: int) -> bool:
 
 
 async def start_session(user_id: int, category: str) -> int:
-    now = datetime.now()
+    now = now_utc()
+    today_utc = now.strftime("%Y-%m-%d")
     async with aiosqlite.connect(DB_PATH) as db:
         await db.execute("""
             UPDATE sessions
@@ -96,13 +100,13 @@ async def start_session(user_id: int, category: str) -> int:
         cursor = await db.execute("""
             INSERT INTO sessions (user_id, category, start_time, date)
             VALUES (?, ?, ?, ?)
-        """, (user_id, category, now.isoformat(), date.today().isoformat()))
+        """, (user_id, category, now.isoformat(), today_utc))
         await db.commit()
         return cursor.lastrowid
 
 
 async def stop_session(user_id: int, description: str = None) -> int | None:
-    now = datetime.now()
+    now = now_utc()
     async with aiosqlite.connect(DB_PATH) as db:
         cursor = await db.execute("""
             SELECT id, start_time FROM sessions

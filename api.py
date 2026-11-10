@@ -60,8 +60,8 @@ async def get_today(x_init_data: str = Header(default="")):
     for cat, start, end, desc, dur in sessions:
         result.append({
             "category": cat,
-            "start": datetime.fromisoformat(start).strftime("%H:%M"),
-            "end": datetime.fromisoformat(end).strftime("%H:%M") if end else None,
+            "start": start,
+            "end": end,
             "description": desc,
             "duration": dur,
         })
