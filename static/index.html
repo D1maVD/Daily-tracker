@@ -227,8 +227,28 @@
   if (tg) { tg.ready(); tg.expand(); }
 
   const initData = tg?.initData || "";
-  const initDataB64 = initData ? btoa(unescape(encodeURIComponent(initData))) : "";
-  const headers = { "Content-Type": "application/json", "X-Init-Data": initDataB64 };
+  const initDataEnc = encodeURIComponent(initData);
+  const jsonHeaders = { "Content-Type": "application/json" };
+
+  function getUrl(path) {
+    return `${path}?init_data=${initDataEnc}`;
+  }
+
+  async function apiGet(path) {
+    return fetch(getUrl(path), { headers: jsonHeaders });
+  }
+
+  async function apiPost(path, body = {}) {
+    return fetch(path, {
+      method: "POST",
+      headers: jsonHeaders,
+      body: JSON.stringify({ ...body, init_data: initData }),
+    });
+  }
+
+  async function apiDelete(path) {
+    return fetch(`${path}?init_data=${initDataEnc}`, { method: "DELETE", headers: jsonHeaders });
+  }
 
   function fmtTime(isoStr) {
     if (!isoStr) return "";
@@ -260,7 +280,7 @@
 
   async function loadCategories() {
     try {
-      const res = await fetch("/api/categories", { headers });
+      const res = await apiGet("/api/categories");
       if (!res.ok) throw new Error(res.status);
       const data = await res.json();
       if (data.categories?.length) categories = data.categories;
@@ -302,7 +322,7 @@
 
     list.querySelectorAll(".del-btn").forEach(btn => {
       btn.addEventListener("click", async () => {
-        await fetch(`/api/categories/${btn.dataset.id}`, { method: "DELETE", headers });
+        await apiDelete(`/api/categories/${btn.dataset.id}`);
         loadCategories();
       });
     });
@@ -312,7 +332,7 @@
     const input = document.getElementById("new-cat-input");
     const name = input.value.trim();
     if (!name) return;
-    await fetch("/api/categories", { method: "POST", headers, body: JSON.stringify({ name }) });
+    await apiPost("/api/categories", { name });
     input.value = "";
     loadCategories();
   });
@@ -327,7 +347,7 @@
     const btn = document.getElementById("btn-start");
     btn.textContent = "...";
     try {
-      const res = await fetch("/api/start", { method: "POST", headers, body: JSON.stringify({ category: selectedCat }) });
+      const res = await apiPost("/api/start", { category: selectedCat });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
         alert("Ошибка: " + (err.detail || res.status));
@@ -347,7 +367,7 @@
     const btn = document.getElementById("btn-stop");
     btn.textContent = "...";
     try {
-      const res = await fetch("/api/stop", { method: "POST", headers, body: JSON.stringify({ description: desc }) });
+      const res = await apiPost("/api/stop", { description: desc });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
         alert("Ошибка: " + (err.detail || res.status));
@@ -391,7 +411,7 @@
   }
 
   async function loadToday() {
-    const res = await fetch("/api/today", { headers });
+    const res = await apiGet("/api/today");
     const data = await res.json();
 
     const card = document.getElementById("status-card");
@@ -440,7 +460,7 @@
   const CAT_COLORS = ["#4299e1","#ed8936","#48bb78","#a0aec0","#9f7aea","#f56565","#38b2ac"];
 
   async function loadWeek() {
-    const res = await fetch("/api/week", { headers });
+    const res = await apiGet("/api/week");
     const data = await res.json();
     const days = data.days;
     const maxMins = Math.max(...days.map(d => d.total_minutes), 1);

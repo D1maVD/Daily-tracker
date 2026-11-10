@@ -1,14 +1,14 @@
 """FastAPI backend for the Tracker Mini App."""
-import base64
 import hashlib
 import hmac
 import json
 import os
 from datetime import date, datetime, timedelta
+from typing import Optional
 from urllib.parse import parse_qsl, unquote
 
 import aiosqlite
-from fastapi import FastAPI, Header, HTTPException
+from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
@@ -16,7 +16,6 @@ from pydantic import BaseModel
 import db
 
 BOT_TOKEN = os.environ["BOT_TOKEN"]
-CHAT_ID = int(os.environ.get("CHAT_ID", 0))
 
 app = FastAPI()
 
@@ -31,10 +30,6 @@ app.add_middleware(
 def verify_init_data(init_data: str) -> int:
     if not init_data:
         raise HTTPException(status_code=401, detail="initData required")
-    try:
-        init_data = base64.b64decode(init_data).decode("utf-8")
-    except Exception:
-        pass
     parsed = dict(parse_qsl(init_data, strict_parsing=False))
     check_str = "\n".join(f"{k}={v}" for k, v in sorted(parsed.items()) if k != "hash")
     secret = hmac.new(b"WebAppData", BOT_TOKEN.encode(), hashlib.sha256).digest()
@@ -50,34 +45,28 @@ async def index():
 
 
 @app.get("/api/today")
-async def get_today(x_init_data: str = Header(default="")):
-    user_id = verify_init_data(x_init_data)
+async def get_today(init_data: str = Query(default="")):
+    user_id = verify_init_data(init_data)
     sessions = await db.get_today_sessions(user_id)
     active = await db.get_active_session(user_id)
 
     active_data = None
     if active:
         _, cat, start = active
-        elapsed = int((datetime.now() - datetime.fromisoformat(start)).total_seconds())
+        elapsed = int((datetime.now() - datetime.fromisoformat(start.replace("Z", "+00:00"))).total_seconds())
         active_data = {"category": cat, "start": start, "elapsed_seconds": elapsed}
 
     result = []
     for cat, start, end, desc, dur in sessions:
-        result.append({
-            "category": cat,
-            "start": start,
-            "end": end,
-            "description": desc,
-            "duration": dur,
-        })
+        result.append({"category": cat, "start": start, "end": end, "description": desc, "duration": dur})
 
     total = sum(s[4] for s in sessions if s[4])
     return {"sessions": result, "active": active_data, "total_minutes": total}
 
 
 @app.get("/api/week")
-async def get_week(x_init_data: str = Header(default="")):
-    user_id = verify_init_data(x_init_data)
+async def get_week(init_data: str = Query(default="")):
+    user_id = verify_init_data(init_data)
 
     days = []
     for i in range(6, -1, -1):
@@ -99,41 +88,44 @@ async def get_week(x_init_data: str = Header(default="")):
     return {"days": days}
 
 
+@app.get("/api/categories")
+async def get_categories(init_data: str = Query(default="")):
+    user_id = verify_init_data(init_data)
+    rows = await db.get_categories(user_id)
+    return {"categories": [{"id": r[0], "name": r[1]} for r in rows]}
+
+
 class StartBody(BaseModel):
     category: str
+    init_data: str = ""
 
 class StopBody(BaseModel):
     description: str = ""
+    init_data: str = ""
 
 class CategoryBody(BaseModel):
     name: str
+    init_data: str = ""
 
 
 @app.post("/api/start")
-async def start(body: StartBody, x_init_data: str = Header(default="")):
-    user_id = verify_init_data(x_init_data)
+async def start(body: StartBody):
+    user_id = verify_init_data(body.init_data)
     await db.start_session(user_id, body.category)
     return {"ok": True}
 
 
 @app.post("/api/stop")
-async def stop(body: StopBody, x_init_data: str = Header(default="")):
-    user_id = verify_init_data(x_init_data)
+async def stop(body: StopBody):
+    user_id = verify_init_data(body.init_data)
     desc = body.description.strip() or None
     duration = await db.stop_session(user_id, desc)
     return {"ok": True, "duration": duration}
 
 
-@app.get("/api/categories")
-async def get_categories(x_init_data: str = Header(default="")):
-    user_id = verify_init_data(x_init_data)
-    rows = await db.get_categories(user_id)
-    return {"categories": [{"id": r[0], "name": r[1]} for r in rows]}
-
-
 @app.post("/api/categories")
-async def add_category(body: CategoryBody, x_init_data: str = Header(default="")):
-    user_id = verify_init_data(x_init_data)
+async def add_category(body: CategoryBody):
+    user_id = verify_init_data(body.init_data)
     name = body.name.strip()
     if not name:
         raise HTTPException(status_code=400, detail="Name is required")
@@ -142,8 +134,8 @@ async def add_category(body: CategoryBody, x_init_data: str = Header(default="")
 
 
 @app.delete("/api/categories/{cat_id}")
-async def delete_category(cat_id: int, x_init_data: str = Header(default="")):
-    user_id = verify_init_data(x_init_data)
+async def delete_category(cat_id: int, init_data: str = Query(default="")):
+    user_id = verify_init_data(init_data)
     ok = await db.delete_category(user_id, cat_id)
     if not ok:
         raise HTTPException(status_code=404)
