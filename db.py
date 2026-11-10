@@ -4,6 +4,14 @@ from datetime import datetime, date
 
 DB_PATH = os.getenv("DB_PATH", "tracker.db")
 
+DEFAULT_CATEGORIES = [
+    ("💻 Код", "code"),
+    ("🤝 Митинг", "meeting"),
+    ("📚 Обучение", "learning"),
+    ("☕ Перерыв", "break"),
+    ("🔧 Другое", "other"),
+]
+
 
 async def init_db():
     async with aiosqlite.connect(DB_PATH) as db:
@@ -19,13 +27,65 @@ async def init_db():
                 duration_minutes INTEGER
             )
         """)
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS categories (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL,
+                name TEXT NOT NULL,
+                sort_order INTEGER DEFAULT 0
+            )
+        """)
         await db.commit()
+
+
+async def get_categories(user_id: int) -> list:
+    async with aiosqlite.connect(DB_PATH) as db:
+        cursor = await db.execute("""
+            SELECT id, name FROM categories
+            WHERE user_id = ?
+            ORDER BY sort_order, id
+        """, (user_id,))
+        rows = await cursor.fetchall()
+
+    if not rows:
+        # Первый запуск — засеять дефолтные категории
+        await seed_default_categories(user_id)
+        return await get_categories(user_id)
+
+    return rows
+
+
+async def seed_default_categories(user_id: int):
+    async with aiosqlite.connect(DB_PATH) as db:
+        for i, (name, _) in enumerate(DEFAULT_CATEGORIES):
+            await db.execute("""
+                INSERT INTO categories (user_id, name, sort_order) VALUES (?, ?, ?)
+            """, (user_id, name, i))
+        await db.commit()
+
+
+async def add_category(user_id: int, name: str) -> int:
+    async with aiosqlite.connect(DB_PATH) as db:
+        cursor = await db.execute("""
+            INSERT INTO categories (user_id, name, sort_order)
+            VALUES (?, ?, (SELECT COALESCE(MAX(sort_order), 0) + 1 FROM categories WHERE user_id = ?))
+        """, (user_id, name, user_id))
+        await db.commit()
+        return cursor.lastrowid
+
+
+async def delete_category(user_id: int, category_id: int) -> bool:
+    async with aiosqlite.connect(DB_PATH) as db:
+        cursor = await db.execute("""
+            DELETE FROM categories WHERE id = ? AND user_id = ?
+        """, (category_id, user_id))
+        await db.commit()
+        return cursor.rowcount > 0
 
 
 async def start_session(user_id: int, category: str) -> int:
     now = datetime.now()
     async with aiosqlite.connect(DB_PATH) as db:
-        # Закрываем незавершённые сессии если были
         await db.execute("""
             UPDATE sessions
             SET end_time = ?,

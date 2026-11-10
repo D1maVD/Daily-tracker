@@ -21,7 +21,6 @@
       font-size: 15px; padding-bottom: 64px;
     }
 
-    /* Nav */
     .nav {
       position: fixed; bottom: 0; left: 0; right: 0;
       background: var(--sec); border-top: 1px solid rgba(0,0,0,.08);
@@ -32,17 +31,14 @@
       align-items: center; justify-content: center;
       padding: 5px 0 8px; cursor: pointer;
       font-size: 9px; color: var(--hint);
-      border: none; background: none;
-      transition: color .15s;
+      border: none; background: none; transition: color .15s;
     }
     .nav-item .icon { font-size: 22px; line-height: 1; margin-bottom: 2px; }
     .nav-item.active { color: var(--btn); }
 
-    /* Pages */
     .page { display: none; padding: 16px; }
     .page.active { display: block; }
 
-    /* Card */
     .card {
       background: var(--sec); border-radius: 14px;
       padding: 14px 16px; margin-bottom: 12px;
@@ -52,7 +48,6 @@
       text-transform: uppercase; letter-spacing: .6px; margin-bottom: 8px;
     }
 
-    /* Status block */
     .status-card {
       background: var(--btn); color: var(--btn-text);
       border-radius: 16px; padding: 20px 16px;
@@ -63,7 +58,6 @@
     .status-time  { font-size: 36px; font-weight: 700; letter-spacing: -1px; font-variant-numeric: tabular-nums; }
     .status-idle  { font-size: 15px; opacity: .85; }
 
-    /* Buttons */
     .btn-row { display: flex; gap: 10px; margin-bottom: 12px; }
     .btn {
       flex: 1; border: none; border-radius: 12px;
@@ -71,15 +65,11 @@
       cursor: pointer; transition: opacity .15s;
     }
     .btn:active { opacity: .7; }
-    .btn-start { background: var(--btn); color: var(--btn-text); }
-    .btn-stop  { background: #e53e3e; color: #fff; }
+    .btn-start    { background: var(--btn); color: var(--btn-text); }
+    .btn-stop     { background: #e53e3e; color: #fff; }
     .btn-disabled { opacity: .35; pointer-events: none; }
 
-    /* Category picker */
-    .cat-grid {
-      display: grid; grid-template-columns: 1fr 1fr;
-      gap: 8px; margin-bottom: 12px;
-    }
+    .cat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px; }
     .cat-btn {
       border: 2px solid transparent; border-radius: 12px;
       background: var(--sec); padding: 12px 10px;
@@ -87,8 +77,8 @@
       text-align: center; transition: all .15s;
     }
     .cat-btn.selected { border-color: var(--btn); background: var(--btn); color: var(--btn-text); }
+    .cat-btn.span2 { grid-column: span 2; }
 
-    /* Sessions list */
     .session-item {
       display: flex; align-items: center;
       padding: 10px 0; border-bottom: 1px solid rgba(0,0,0,.06); gap: 10px;
@@ -100,11 +90,9 @@
     .session-desc { font-size: 12px; color: var(--hint); margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .session-dur  { font-size: 13px; font-weight: 600; color: var(--hint); white-space: nowrap; }
 
-    /* Total pill */
     .total-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
     .total-val { font-size: 17px; font-weight: 700; }
 
-    /* Week bars */
     .week-bars { display: flex; align-items: flex-end; gap: 6px; height: 100px; margin-bottom: 8px; }
     .bar-col { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; height: 100%; justify-content: flex-end; }
     .bar { width: 100%; background: var(--btn); border-radius: 6px 6px 0 0; min-height: 2px; transition: height .3s; opacity: .85; }
@@ -112,7 +100,6 @@
     .bar-label { font-size: 10px; color: var(--hint); }
     .bar-val   { font-size: 10px; font-weight: 600; }
 
-    /* Category breakdown */
     .cat-row { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid rgba(0,0,0,.06); }
     .cat-row:last-child { border-bottom: none; }
     .cat-dot  { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
@@ -120,7 +107,33 @@
     .cat-pct  { font-size: 13px; color: var(--hint); }
     .cat-mins { font-size: 13px; font-weight: 600; }
 
-    /* Description input */
+    /* Settings */
+    .settings-item {
+      display: flex; align-items: center;
+      padding: 11px 0; border-bottom: 1px solid rgba(0,0,0,.06); gap: 10px;
+    }
+    .settings-item:last-child { border-bottom: none; }
+    .settings-name { flex: 1; font-size: 15px; }
+    .del-btn {
+      border: none; background: none; color: #e53e3e;
+      font-size: 20px; cursor: pointer; padding: 4px; opacity: .5;
+    }
+    .del-btn:active { opacity: 1; }
+
+    .add-row { display: flex; gap: 8px; margin-top: 12px; }
+    .add-input {
+      flex: 1; background: var(--sec); border: none;
+      border-radius: 10px; padding: 10px 12px;
+      font-size: 15px; color: var(--text); outline: none;
+      font-family: inherit;
+    }
+    .add-btn {
+      border: none; border-radius: 10px; background: var(--btn);
+      color: var(--btn-text); padding: 10px 16px;
+      font-size: 15px; font-weight: 600; cursor: pointer;
+    }
+    .add-btn:active { opacity: .7; }
+
     .desc-wrap { margin-bottom: 12px; }
     .desc-wrap textarea {
       width: 100%; background: var(--sec); border: none;
@@ -135,31 +148,22 @@
 </head>
 <body>
 
-<!-- Page: Today -->
+<!-- Today -->
 <div class="page active" id="page-today">
-
   <div class="status-card" id="status-card">
     <div class="status-idle">Нет активной сессии</div>
   </div>
 
-  <!-- Start flow -->
   <div id="start-flow">
     <div class="card">
       <div class="card-title">Категория</div>
-      <div class="cat-grid" id="cat-grid">
-        <button class="cat-btn" data-cat="💻 Код">💻 Код</button>
-        <button class="cat-btn" data-cat="🤝 Митинг">🤝 Митинг</button>
-        <button class="cat-btn" data-cat="📚 Обучение">📚 Обучение</button>
-        <button class="cat-btn" data-cat="☕ Перерыв">☕ Перерыв</button>
-        <button class="cat-btn" data-cat="🔧 Другое" style="grid-column: span 2;">🔧 Другое</button>
-      </div>
+      <div class="cat-grid" id="cat-grid"></div>
     </div>
     <div class="btn-row">
       <button class="btn btn-start btn-disabled" id="btn-start">▶ Старт</button>
     </div>
   </div>
 
-  <!-- Stop flow -->
   <div id="stop-flow" class="hidden">
     <div class="desc-wrap">
       <textarea id="desc-input" rows="3" placeholder="Что сделал? (необязательно)"></textarea>
@@ -169,7 +173,6 @@
     </div>
   </div>
 
-  <!-- Today sessions -->
   <div class="card" id="sessions-card">
     <div class="total-row">
       <div class="card-title" style="margin:0">Сегодня</div>
@@ -179,12 +182,11 @@
   </div>
 </div>
 
-<!-- Page: Week -->
+<!-- Week -->
 <div class="page" id="page-week">
   <div class="card">
     <div class="card-title">Часы за 7 дней</div>
     <div class="week-bars" id="week-bars"></div>
-    <div style="display:flex;justify-content:space-between" id="week-labels"></div>
   </div>
   <div class="card">
     <div class="card-title">По категориям</div>
@@ -192,13 +194,28 @@
   </div>
 </div>
 
-<!-- Bottom nav -->
+<!-- Settings -->
+<div class="page" id="page-settings">
+  <div class="card">
+    <div class="card-title">Категории</div>
+    <div id="cat-list"><div class="empty">Загрузка...</div></div>
+    <div class="add-row">
+      <input class="add-input" id="new-cat-input" placeholder="Новая категория..." maxlength="30">
+      <button class="add-btn" id="add-cat-btn">+</button>
+    </div>
+  </div>
+</div>
+
+<!-- Nav -->
 <nav class="nav">
   <button class="nav-item active" data-page="today">
     <span class="icon">🏠</span>Сегодня
   </button>
   <button class="nav-item" data-page="week">
     <span class="icon">📊</span>Неделя
+  </button>
+  <button class="nav-item" data-page="settings">
+    <span class="icon">⚙️</span>Настройки
   </button>
 </nav>
 
@@ -217,18 +234,70 @@
       btn.classList.add("active");
       document.getElementById("page-" + btn.dataset.page).classList.add("active");
       if (btn.dataset.page === "week") loadWeek();
+      if (btn.dataset.page === "settings") loadCategories();
     });
   });
 
-  // Category selection
+  // Categories
+  let categories = [];
   let selectedCat = null;
-  document.querySelectorAll(".cat-btn").forEach(btn => {
-    btn.addEventListener("click", () => {
-      document.querySelectorAll(".cat-btn").forEach(b => b.classList.remove("selected"));
-      btn.classList.add("selected");
-      selectedCat = btn.dataset.cat;
-      document.getElementById("btn-start").classList.remove("btn-disabled");
+
+  async function loadCategories() {
+    const res = await fetch("/api/categories", { headers });
+    const data = await res.json();
+    categories = data.categories;
+    renderCatGrid();
+    renderCatList();
+  }
+
+  function renderCatGrid() {
+    const grid = document.getElementById("cat-grid");
+    grid.innerHTML = categories.map((c, i) => {
+      const isLast = i === categories.length - 1 && categories.length % 2 !== 0;
+      return `<button class="cat-btn${isLast ? " span2" : ""}" data-name="${c.name}">${c.name}</button>`;
+    }).join("");
+
+    grid.querySelectorAll(".cat-btn").forEach(btn => {
+      btn.addEventListener("click", () => {
+        grid.querySelectorAll(".cat-btn").forEach(b => b.classList.remove("selected"));
+        btn.classList.add("selected");
+        selectedCat = btn.dataset.name;
+        document.getElementById("btn-start").classList.remove("btn-disabled");
+      });
     });
+  }
+
+  function renderCatList() {
+    const list = document.getElementById("cat-list");
+    if (!categories.length) {
+      list.innerHTML = `<div class="empty">Нет категорий</div>`;
+      return;
+    }
+    list.innerHTML = categories.map(c => `
+      <div class="settings-item">
+        <div class="settings-name">${c.name}</div>
+        <button class="del-btn" data-id="${c.id}">✕</button>
+      </div>`).join("");
+
+    list.querySelectorAll(".del-btn").forEach(btn => {
+      btn.addEventListener("click", async () => {
+        await fetch(`/api/categories/${btn.dataset.id}`, { method: "DELETE", headers });
+        loadCategories();
+      });
+    });
+  }
+
+  document.getElementById("add-cat-btn").addEventListener("click", async () => {
+    const input = document.getElementById("new-cat-input");
+    const name = input.value.trim();
+    if (!name) return;
+    await fetch("/api/categories", { method: "POST", headers, body: JSON.stringify({ name }) });
+    input.value = "";
+    loadCategories();
+  });
+
+  document.getElementById("new-cat-input").addEventListener("keydown", e => {
+    if (e.key === "Enter") document.getElementById("add-cat-btn").click();
   });
 
   // Start
@@ -265,7 +334,8 @@
     const str = h > 0
       ? `${h}:${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}`
       : `${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}`;
-    document.getElementById("timer-val")?.innerText && (document.getElementById("timer-val").innerText = str);
+    const el = document.getElementById("timer-val");
+    if (el) el.innerText = str;
   }
 
   function fmtMins(m) {
@@ -300,11 +370,9 @@
       document.getElementById("btn-start").classList.add("btn-disabled");
     }
 
-    // Total
     document.getElementById("total-time").innerText =
       data.total_minutes > 0 ? fmtMins(data.total_minutes) : "—";
 
-    // Sessions list
     const list = document.getElementById("sessions-list");
     if (!data.sessions.length) {
       list.innerHTML = `<div class="empty">Нет записей</div>`;
@@ -322,29 +390,20 @@
   }
 
   // Week
-  const CAT_COLORS = {
-    "💻 Код": "#4299e1",
-    "🤝 Митинг": "#ed8936",
-    "📚 Обучение": "#48bb78",
-    "☕ Перерыв": "#a0aec0",
-    "🔧 Другое": "#9f7aea",
-  };
+  const CAT_COLORS = ["#4299e1","#ed8936","#48bb78","#a0aec0","#9f7aea","#f56565","#38b2ac"];
 
   async function loadWeek() {
     const res = await fetch("/api/week", { headers });
     const data = await res.json();
     const days = data.days;
-
     const maxMins = Math.max(...days.map(d => d.total_minutes), 1);
-    const barsEl = document.getElementById("week-bars");
     const today = new Date().toISOString().slice(0, 10);
 
-    barsEl.innerHTML = days.map(d => {
+    document.getElementById("week-bars").innerHTML = days.map(d => {
       const pct = Math.round((d.total_minutes / maxMins) * 100);
       const isToday = d.date === today;
       const h = Math.floor(d.total_minutes / 60);
-      const m = d.total_minutes % 60;
-      const val = d.total_minutes > 0 ? (h > 0 ? `${h}ч` : `${m}м`) : "";
+      const val = d.total_minutes > 0 ? (h > 0 ? `${h}ч` : `${d.total_minutes}м`) : "";
       return `
         <div class="bar-col">
           <div class="bar-val">${val}</div>
@@ -353,13 +412,10 @@
         </div>`;
     }).join("");
 
-    // Category breakdown (sum across week)
     const catTotals = {};
-    days.forEach(d => {
-      Object.entries(d.categories).forEach(([cat, mins]) => {
-        catTotals[cat] = (catTotals[cat] || 0) + mins;
-      });
-    });
+    days.forEach(d => Object.entries(d.categories).forEach(([cat, mins]) => {
+      catTotals[cat] = (catTotals[cat] || 0) + mins;
+    }));
 
     const totalAll = Object.values(catTotals).reduce((a, b) => a + b, 0);
     const breakdown = document.getElementById("cat-breakdown");
@@ -370,12 +426,11 @@
     }
 
     const sorted = Object.entries(catTotals).sort((a, b) => b[1] - a[1]);
-    breakdown.innerHTML = sorted.map(([cat, mins]) => {
+    breakdown.innerHTML = sorted.map(([cat, mins], i) => {
       const pct = Math.round(mins / totalAll * 100);
-      const color = CAT_COLORS[cat] || "#a0aec0";
       return `
         <div class="cat-row">
-          <div class="cat-dot" style="background:${color}"></div>
+          <div class="cat-dot" style="background:${CAT_COLORS[i % CAT_COLORS.length]}"></div>
           <div class="cat-name">${cat}</div>
           <div class="cat-pct">${pct}%</div>
           <div class="cat-mins">${fmtMins(mins)}</div>
@@ -383,7 +438,8 @@
     }).join("");
   }
 
-  loadToday();
+  // Init
+  loadCategories().then(() => loadToday());
   setInterval(loadToday, 30000);
 </script>
 </body>

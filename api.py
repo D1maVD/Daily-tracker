@@ -100,6 +100,9 @@ class StartBody(BaseModel):
 class StopBody(BaseModel):
     description: str = ""
 
+class CategoryBody(BaseModel):
+    name: str
+
 
 @app.post("/api/start")
 async def start(body: StartBody, x_init_data: str = Header(default="")):
@@ -114,3 +117,29 @@ async def stop(body: StopBody, x_init_data: str = Header(default="")):
     desc = body.description.strip() or None
     duration = await db.stop_session(user_id, desc)
     return {"ok": True, "duration": duration}
+
+
+@app.get("/api/categories")
+async def get_categories(x_init_data: str = Header(default="")):
+    user_id = verify_init_data(x_init_data) if x_init_data else CHAT_ID
+    rows = await db.get_categories(user_id)
+    return {"categories": [{"id": r[0], "name": r[1]} for r in rows]}
+
+
+@app.post("/api/categories")
+async def add_category(body: CategoryBody, x_init_data: str = Header(default="")):
+    user_id = verify_init_data(x_init_data) if x_init_data else CHAT_ID
+    name = body.name.strip()
+    if not name:
+        raise HTTPException(status_code=400, detail="Name is required")
+    cat_id = await db.add_category(user_id, name)
+    return {"ok": True, "id": cat_id, "name": name}
+
+
+@app.delete("/api/categories/{cat_id}")
+async def delete_category(cat_id: int, x_init_data: str = Header(default="")):
+    user_id = verify_init_data(x_init_data) if x_init_data else CHAT_ID
+    ok = await db.delete_category(user_id, cat_id)
+    if not ok:
+        raise HTTPException(status_code=404)
+    return {"ok": True}

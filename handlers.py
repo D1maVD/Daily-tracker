@@ -6,7 +6,6 @@ from aiogram.fsm.state import State, StatesGroup
 from datetime import datetime
 
 import db
-import analysis
 from keyboards import main_keyboard, category_keyboard
 
 router = Router()
@@ -36,27 +35,23 @@ async def start_session(message: Message):
         elapsed = int((datetime.now() - datetime.fromisoformat(start)).total_seconds() / 60)
         h, m = divmod(elapsed, 60)
         time_str = f"{h}ч {m}мин" if h else f"{m}мин"
-        await message.answer(
-            f"⚠️ Уже идёт сессия: {cat} ({time_str})\n\nСначала нажми ⏹ Стоп"
-        )
+        await message.answer(f"⚠️ Уже идёт сессия: {cat} ({time_str})\n\nСначала нажми ⏹ Стоп")
         return
 
-    await message.answer("Выбери категорию:", reply_markup=category_keyboard())
+    categories = await db.get_categories(message.from_user.id)
+    await message.answer("Выбери категорию:", reply_markup=category_keyboard(categories))
 
 
 @router.callback_query(F.data.startswith("cat:"))
 async def category_selected(callback: CallbackQuery):
-    cat_key = callback.data.split(":")[1]
-    cat_names = {
-        "code": "💻 Код",
-        "meeting": "🤝 Митинг",
-        "learning": "📚 Обучение",
-        "break": "☕ Перерыв",
-        "other": "🔧 Другое",
-    }
-    cat = cat_names[cat_key]
+    cat_id = int(callback.data.split(":")[1])
+    user_id = callback.from_user.id
 
-    await db.start_session(callback.from_user.id, cat)
+    categories = await db.get_categories(user_id)
+    cat_map = {c[0]: c[1] for c in categories}
+    cat = cat_map.get(cat_id, "Другое")
+
+    await db.start_session(user_id, cat)
     await callback.message.edit_text(f"✅ Начал: {cat}")
     await callback.message.answer(
         f"⏱ Идёт трекинг — {cat}\n\nНажми ⏹ Стоп когда закончишь",
@@ -69,10 +64,7 @@ async def category_selected(callback: CallbackQuery):
 async def stop_session(message: Message, state: FSMContext):
     active = await db.get_active_session(message.from_user.id)
     if not active:
-        await message.answer(
-            "Нет активной сессии.",
-            reply_markup=main_keyboard(has_active=False)
-        )
+        await message.answer("Нет активной сессии.", reply_markup=main_keyboard(has_active=False))
         return
 
     await state.set_state(SessionStates.waiting_description)
@@ -83,7 +75,6 @@ async def stop_session(message: Message, state: FSMContext):
 async def save_description(message: Message, state: FSMContext):
     description = None if message.text.strip() == "-" else message.text.strip()
     duration = await db.stop_session(message.from_user.id, description)
-
     await state.clear()
 
     if duration is None:
@@ -92,10 +83,7 @@ async def save_description(message: Message, state: FSMContext):
 
     h, m = divmod(duration, 60)
     time_str = f"{h}ч {m}мин" if h else f"{m}мин"
-    await message.answer(
-        f"✅ Записано!\n⏱ Время: {time_str}",
-        reply_markup=main_keyboard(has_active=False)
-    )
+    await message.answer(f"✅ Записано!\n⏱ Время: {time_str}", reply_markup=main_keyboard(has_active=False))
 
 
 @router.message(F.text == "📊 День")

@@ -1,15 +1,5 @@
 from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton
 
-CATEGORIES = [
-    ("💻 Код", "code"),
-    ("🤝 Митинг", "meeting"),
-    ("📚 Обучение", "learning"),
-    ("☕ Перерыв", "break"),
-    ("🔧 Другое", "other"),
-]
-
-CAT_DISPLAY = {v: k for k, v in CATEGORIES}
-
 
 def main_keyboard(has_active: bool = False) -> ReplyKeyboardMarkup:
     if has_active:
@@ -19,9 +9,9 @@ def main_keyboard(has_active: bool = False) -> ReplyKeyboardMarkup:
     return ReplyKeyboardMarkup(keyboard=rows, resize_keyboard=True)
 
 
-def category_keyboard() -> InlineKeyboardMarkup:
+def category_keyboard(categories: list) -> InlineKeyboardMarkup:
     buttons = [
-        [InlineKeyboardButton(text=name, callback_data=f"cat:{cb}")]
-        for name, cb in CATEGORIES
+        [InlineKeyboardButton(text=cat_name, callback_data=f"cat:{cat_id}")]
+        for cat_id, cat_name in categories
     ]
     return InlineKeyboardMarkup(inline_keyboard=buttons)
