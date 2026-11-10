@@ -1,4 +1,5 @@
 """FastAPI backend for the Tracker Mini App."""
+import base64
 import hashlib
 import hmac
 import json
@@ -30,7 +31,11 @@ app.add_middleware(
 def verify_init_data(init_data: str) -> int:
     if not init_data:
         raise HTTPException(status_code=401, detail="initData required")
-    parsed = dict(parse_qsl(init_data, strict_parsing=True))
+    try:
+        init_data = base64.b64decode(init_data).decode("utf-8")
+    except Exception:
+        pass
+    parsed = dict(parse_qsl(init_data, strict_parsing=False))
     check_str = "\n".join(f"{k}={v}" for k, v in sorted(parsed.items()) if k != "hash")
     secret = hmac.new(b"WebAppData", BOT_TOKEN.encode(), hashlib.sha256).digest()
     expected = hmac.new(secret, check_str.encode(), hashlib.sha256).hexdigest()

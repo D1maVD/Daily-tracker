@@ -227,7 +227,8 @@
   if (tg) { tg.ready(); tg.expand(); }
 
   const initData = tg?.initData || "";
-  const headers = { "Content-Type": "application/json", "X-Init-Data": initData };
+  const initDataB64 = initData ? btoa(unescape(encodeURIComponent(initData))) : "";
+  const headers = { "Content-Type": "application/json", "X-Init-Data": initDataB64 };
 
   function fmtTime(isoStr) {
     if (!isoStr) return "";
