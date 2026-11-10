@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Трекер дня v5</title>
+  <title>Трекер дня v6</title>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <style>
     :root {
@@ -264,8 +264,8 @@
           json: () => { try { return Promise.resolve(JSON.parse(this.responseText)); } catch (e) { return Promise.reject(e); } },
         });
       };
-      xhr.onerror = function () { reject(new Error("Network error")); };
-      xhr.ontimeout = function () { reject(new Error("Timeout")); };
+      xhr.onerror = function () { reject(new Error("XHR error [" + path + "]")); };
+      xhr.ontimeout = function () { reject(new Error("XHR timeout 8s [" + path + "]")); };
       xhr.send(JSON.stringify({ ...body, init_data: initData }));
     });
   }
@@ -375,6 +375,7 @@
         return;
       }
       await loadToday();
+      btn.textContent = "▶ Старт";
     } catch (e) {
       alert("Ошибка соединения: " + e.message);
       btn.textContent = "▶ Старт";
@@ -396,6 +397,7 @@
       }
       document.getElementById("desc-input").value = "";
       await loadToday();
+      btn.textContent = "⏹ Стоп";
     } catch (e) {
       alert("Ошибка соединения: " + e.message);
       btn.textContent = "⏹ Стоп";
