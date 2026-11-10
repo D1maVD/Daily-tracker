@@ -21,6 +21,23 @@ app = FastAPI()
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
 
+class _ForceJson:
+    """Telegram WebKit on iOS blocks requests with Content-Type: application/json
+    (triggers CORS preflight that WebKit rejects). Client sends no Content-Type,
+    this middleware injects it back so Pydantic can parse the JSON body."""
+    def __init__(self, app):
+        self.app = app
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] == "http" and scope.get("method") == "POST":
+            headers = [(k, v) for k, v in scope["headers"] if k.lower() != b"content-type"]
+            headers.append((b"content-type", b"application/json"))
+            scope = {**scope, "headers": headers}
+        await self.app(scope, receive, send)
+
+app.add_middleware(_ForceJson)
+
+
 def verify(init_data: str) -> int:
     if not init_data:
         raise HTTPException(status_code=401, detail="initData required")

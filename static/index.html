@@ -251,12 +251,10 @@
   if (tg) { tg.ready(); tg.expand(); }
 
   const initData = tg?.initData || "";
-  const H = { "Content-Type": "application/json" };
 
   async function api(path, body = {}) {
     const res = await fetch(path, {
       method: "POST",
-      headers: H,
       body: JSON.stringify({ ...body, init_data: initData }),
     });
     return res;
