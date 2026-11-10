@@ -24,13 +24,18 @@ app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], all
 def verify(init_data: str) -> int:
     if not init_data:
         raise HTTPException(status_code=401, detail="initData required")
-    parsed = dict(parse_qsl(init_data, strict_parsing=False))
-    check_str = "\n".join(f"{k}={v}" for k, v in sorted(parsed.items()) if k != "hash")
-    secret = hmac.new(b"WebAppData", BOT_TOKEN.encode(), hashlib.sha256).digest()
-    expected = hmac.new(secret, check_str.encode(), hashlib.sha256).hexdigest()
-    if not hmac.compare_digest(expected, parsed.get("hash", "")):
-        raise HTTPException(status_code=401, detail="Invalid initData")
-    return json.loads(unquote(parsed["user"]))["id"]
+    try:
+        parsed = dict(parse_qsl(init_data, strict_parsing=False))
+        check_str = "\n".join(f"{k}={v}" for k, v in sorted(parsed.items()) if k != "hash")
+        secret = hmac.new(b"WebAppData", BOT_TOKEN.encode(), hashlib.sha256).digest()
+        expected = hmac.new(secret, check_str.encode(), hashlib.sha256).hexdigest()
+        if not hmac.compare_digest(expected, parsed.get("hash", "")):
+            raise HTTPException(status_code=401, detail="Invalid initData")
+        return json.loads(unquote(parsed["user"]))["id"]
+    except HTTPException:
+        raise
+    except Exception:
+        raise HTTPException(status_code=401, detail="initData parse error")
 
 
 class Base(BaseModel):
