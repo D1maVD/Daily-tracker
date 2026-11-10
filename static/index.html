@@ -247,13 +247,25 @@
   });
 
   // Categories
-  let categories = [];
+  const DEFAULT_CATS = [
+    { id: "d1", name: "💻 Код" },
+    { id: "d2", name: "🤝 Митинг" },
+    { id: "d3", name: "📚 Обучение" },
+    { id: "d4", name: "☕ Перерыв" },
+    { id: "d5", name: "🔧 Другое" },
+  ];
+  let categories = [...DEFAULT_CATS];
   let selectedCat = null;
 
   async function loadCategories() {
-    const res = await fetch("/api/categories", { headers });
-    const data = await res.json();
-    categories = data.categories;
+    try {
+      const res = await fetch("/api/categories", { headers });
+      if (!res.ok) throw new Error(res.status);
+      const data = await res.json();
+      if (data.categories?.length) categories = data.categories;
+    } catch (e) {
+      console.warn("Categories fallback to defaults", e);
+    }
     renderCatGrid();
     renderCatList();
   }
