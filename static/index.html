@@ -256,6 +256,7 @@
     return new Promise((resolve, reject) => {
       const xhr = new XMLHttpRequest();
       xhr.open("POST", path, true);
+      xhr.setRequestHeader("Content-Type", "application/json");
       xhr.timeout = 15000;
       xhr.onload = function () {
         resolve({
