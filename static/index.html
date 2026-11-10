@@ -323,16 +323,42 @@
   // Start
   document.getElementById("btn-start").addEventListener("click", async () => {
     if (!selectedCat) return;
-    await fetch("/api/start", { method: "POST", headers, body: JSON.stringify({ category: selectedCat }) });
-    loadToday();
+    const btn = document.getElementById("btn-start");
+    btn.textContent = "...";
+    try {
+      const res = await fetch("/api/start", { method: "POST", headers, body: JSON.stringify({ category: selectedCat }) });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        alert("Ошибка: " + (err.detail || res.status));
+        btn.textContent = "▶ Старт";
+        return;
+      }
+      await loadToday();
+    } catch (e) {
+      alert("Ошибка соединения: " + e.message);
+      btn.textContent = "▶ Старт";
+    }
   });
 
   // Stop
   document.getElementById("btn-stop").addEventListener("click", async () => {
     const desc = document.getElementById("desc-input").value.trim();
-    await fetch("/api/stop", { method: "POST", headers, body: JSON.stringify({ description: desc }) });
-    document.getElementById("desc-input").value = "";
-    loadToday();
+    const btn = document.getElementById("btn-stop");
+    btn.textContent = "...";
+    try {
+      const res = await fetch("/api/stop", { method: "POST", headers, body: JSON.stringify({ description: desc }) });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        alert("Ошибка: " + (err.detail || res.status));
+        btn.textContent = "⏹ Стоп";
+        return;
+      }
+      document.getElementById("desc-input").value = "";
+      await loadToday();
+    } catch (e) {
+      alert("Ошибка соединения: " + e.message);
+      btn.textContent = "⏹ Стоп";
+    }
   });
 
   // Timer
