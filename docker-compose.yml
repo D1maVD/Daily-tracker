@@ -3,7 +3,7 @@ name: tracker-bot
 services:
   bot:
     build: .
-    container_name: tracker-bot
+    container_name: tracker-bot-bot
     restart: unless-stopped
     environment:
       - BOT_TOKEN=${BOT_TOKEN}
@@ -13,6 +13,21 @@ services:
       - DB_PATH=/data/tracker.db
     volumes:
       - tracker-bot-db:/data
+    command: ["python", "bot.py"]
+
+  api:
+    build: .
+    container_name: tracker-bot-api
+    restart: unless-stopped
+    environment:
+      - BOT_TOKEN=${BOT_TOKEN}
+      - CHAT_ID=${CHAT_ID}
+      - DB_PATH=/data/tracker.db
+    volumes:
+      - tracker-bot-db:/data
+    command: ["uvicorn", "api:app", "--host", "0.0.0.0", "--port", "8000"]
+    ports:
+      - "127.0.0.1:8003:8000"
 
 volumes:
   tracker-bot-db:

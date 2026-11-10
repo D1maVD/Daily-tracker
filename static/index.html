@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Трекер дня</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <style>
+    :root {
+      --bg:       var(--tg-theme-bg-color, #fff);
+      --text:     var(--tg-theme-text-color, #000);
+      --hint:     var(--tg-theme-hint-color, #8e8e93);
+      --btn:      var(--tg-theme-button-color, #2481cc);
+      --btn-text: var(--tg-theme-button-text-color, #fff);
+      --sec:      var(--tg-theme-secondary-bg-color, #f2f2f7);
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: var(--bg); color: var(--text);
+      font-size: 15px; padding-bottom: 64px;
+    }
+
+    /* Nav */
+    .nav {
+      position: fixed; bottom: 0; left: 0; right: 0;
+      background: var(--sec); border-top: 1px solid rgba(0,0,0,.08);
+      display: flex; z-index: 100;
+    }
+    .nav-item {
+      flex: 1; display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      padding: 5px 0 8px; cursor: pointer;
+      font-size: 9px; color: var(--hint);
+      border: none; background: none;
+      transition: color .15s;
+    }
+    .nav-item .icon { font-size: 22px; line-height: 1; margin-bottom: 2px; }
+    .nav-item.active { color: var(--btn); }
+
+    /* Pages */
+    .page { display: none; padding: 16px; }
+    .page.active { display: block; }
+
+    /* Card */
+    .card {
+      background: var(--sec); border-radius: 14px;
+      padding: 14px 16px; margin-bottom: 12px;
+    }
+    .card-title {
+      font-size: 11px; font-weight: 600; color: var(--hint);
+      text-transform: uppercase; letter-spacing: .6px; margin-bottom: 8px;
+    }
+
+    /* Status block */
+    .status-card {
+      background: var(--btn); color: var(--btn-text);
+      border-radius: 16px; padding: 20px 16px;
+      text-align: center; margin-bottom: 12px;
+    }
+    .status-label { font-size: 12px; opacity: .8; margin-bottom: 4px; font-weight: 600; text-transform: uppercase; letter-spacing: .5px; }
+    .status-cat   { font-size: 22px; font-weight: 700; margin-bottom: 4px; }
+    .status-time  { font-size: 36px; font-weight: 700; letter-spacing: -1px; font-variant-numeric: tabular-nums; }
+    .status-idle  { font-size: 15px; opacity: .85; }
+
+    /* Buttons */
+    .btn-row { display: flex; gap: 10px; margin-bottom: 12px; }
+    .btn {
+      flex: 1; border: none; border-radius: 12px;
+      padding: 14px; font-size: 16px; font-weight: 600;
+      cursor: pointer; transition: opacity .15s;
+    }
+    .btn:active { opacity: .7; }
+    .btn-start { background: var(--btn); color: var(--btn-text); }
+    .btn-stop  { background: #e53e3e; color: #fff; }
+    .btn-disabled { opacity: .35; pointer-events: none; }
+
+    /* Category picker */
+    .cat-grid {
+      display: grid; grid-template-columns: 1fr 1fr;
+      gap: 8px; margin-bottom: 12px;
+    }
+    .cat-btn {
+      border: 2px solid transparent; border-radius: 12px;
+      background: var(--sec); padding: 12px 10px;
+      font-size: 14px; font-weight: 600; cursor: pointer;
+      text-align: center; transition: all .15s;
+    }
+    .cat-btn.selected { border-color: var(--btn); background: var(--btn); color: var(--btn-text); }
+
+    /* Sessions list */
+    .session-item {
+      display: flex; align-items: center;
+      padding: 10px 0; border-bottom: 1px solid rgba(0,0,0,.06); gap: 10px;
+    }
+    .session-item:last-child { border-bottom: none; }
+    .session-time { font-size: 12px; color: var(--hint); min-width: 44px; }
+    .session-info { flex: 1; min-width: 0; }
+    .session-cat  { font-weight: 600; font-size: 14px; }
+    .session-desc { font-size: 12px; color: var(--hint); margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .session-dur  { font-size: 13px; font-weight: 600; color: var(--hint); white-space: nowrap; }
+
+    /* Total pill */
+    .total-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+    .total-val { font-size: 17px; font-weight: 700; }
+
+    /* Week bars */
+    .week-bars { display: flex; align-items: flex-end; gap: 6px; height: 100px; margin-bottom: 8px; }
+    .bar-col { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; height: 100%; justify-content: flex-end; }
+    .bar { width: 100%; background: var(--btn); border-radius: 6px 6px 0 0; min-height: 2px; transition: height .3s; opacity: .85; }
+    .bar.today { opacity: 1; }
+    .bar-label { font-size: 10px; color: var(--hint); }
+    .bar-val   { font-size: 10px; font-weight: 600; }
+
+    /* Category breakdown */
+    .cat-row { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid rgba(0,0,0,.06); }
+    .cat-row:last-child { border-bottom: none; }
+    .cat-dot  { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+    .cat-name { flex: 1; font-size: 14px; }
+    .cat-pct  { font-size: 13px; color: var(--hint); }
+    .cat-mins { font-size: 13px; font-weight: 600; }
+
+    /* Description input */
+    .desc-wrap { margin-bottom: 12px; }
+    .desc-wrap textarea {
+      width: 100%; background: var(--sec); border: none;
+      border-radius: 12px; padding: 12px 14px;
+      font-size: 15px; color: var(--text); resize: none;
+      outline: none; font-family: inherit;
+    }
+
+    .empty { text-align: center; color: var(--hint); padding: 24px 0; font-size: 14px; }
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+
+<!-- Page: Today -->
+<div class="page active" id="page-today">
+
+  <div class="status-card" id="status-card">
+    <div class="status-idle">Нет активной сессии</div>
+  </div>
+
+  <!-- Start flow -->
+  <div id="start-flow">
+    <div class="card">
+      <div class="card-title">Категория</div>
+      <div class="cat-grid" id="cat-grid">
+        <button class="cat-btn" data-cat="💻 Код">💻 Код</button>
+        <button class="cat-btn" data-cat="🤝 Митинг">🤝 Митинг</button>
+        <button class="cat-btn" data-cat="📚 Обучение">📚 Обучение</button>
+        <button class="cat-btn" data-cat="☕ Перерыв">☕ Перерыв</button>
+        <button class="cat-btn" data-cat="🔧 Другое" style="grid-column: span 2;">🔧 Другое</button>
+      </div>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-start btn-disabled" id="btn-start">▶ Старт</button>
+    </div>
+  </div>
+
+  <!-- Stop flow -->
+  <div id="stop-flow" class="hidden">
+    <div class="desc-wrap">
+      <textarea id="desc-input" rows="3" placeholder="Что сделал? (необязательно)"></textarea>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-stop" id="btn-stop">⏹ Стоп</button>
+    </div>
+  </div>
+
+  <!-- Today sessions -->
+  <div class="card" id="sessions-card">
+    <div class="total-row">
+      <div class="card-title" style="margin:0">Сегодня</div>
+      <div class="total-val" id="total-time">—</div>
+    </div>
+    <div id="sessions-list"><div class="empty">Нет записей</div></div>
+  </div>
+</div>
+
+<!-- Page: Week -->
+<div class="page" id="page-week">
+  <div class="card">
+    <div class="card-title">Часы за 7 дней</div>
+    <div class="week-bars" id="week-bars"></div>
+    <div style="display:flex;justify-content:space-between" id="week-labels"></div>
+  </div>
+  <div class="card">
+    <div class="card-title">По категориям</div>
+    <div id="cat-breakdown"><div class="empty">Нет данных</div></div>
+  </div>
+</div>
+
+<!-- Bottom nav -->
+<nav class="nav">
+  <button class="nav-item active" data-page="today">
+    <span class="icon">🏠</span>Сегодня
+  </button>
+  <button class="nav-item" data-page="week">
+    <span class="icon">📊</span>Неделя
+  </button>
+</nav>
+
+<script>
+  const tg = window.Telegram?.WebApp;
+  if (tg) { tg.ready(); tg.expand(); }
+
+  const initData = tg?.initData || "";
+  const headers = { "Content-Type": "application/json", "X-Init-Data": initData };
+
+  // Nav
+  document.querySelectorAll(".nav-item").forEach(btn => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll(".nav-item").forEach(b => b.classList.remove("active"));
+      document.querySelectorAll(".page").forEach(p => p.classList.remove("active"));
+      btn.classList.add("active");
+      document.getElementById("page-" + btn.dataset.page).classList.add("active");
+      if (btn.dataset.page === "week") loadWeek();
+    });
+  });
+
+  // Category selection
+  let selectedCat = null;
+  document.querySelectorAll(".cat-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll(".cat-btn").forEach(b => b.classList.remove("selected"));
+      btn.classList.add("selected");
+      selectedCat = btn.dataset.cat;
+      document.getElementById("btn-start").classList.remove("btn-disabled");
+    });
+  });
+
+  // Start
+  document.getElementById("btn-start").addEventListener("click", async () => {
+    if (!selectedCat) return;
+    await fetch("/api/start", { method: "POST", headers, body: JSON.stringify({ category: selectedCat }) });
+    loadToday();
+  });
+
+  // Stop
+  document.getElementById("btn-stop").addEventListener("click", async () => {
+    const desc = document.getElementById("desc-input").value.trim();
+    await fetch("/api/stop", { method: "POST", headers, body: JSON.stringify({ description: desc }) });
+    document.getElementById("desc-input").value = "";
+    loadToday();
+  });
+
+  // Timer
+  let timerInterval = null;
+  let activeStart = null;
+
+  function startTimer(startIso) {
+    activeStart = new Date(startIso);
+    clearInterval(timerInterval);
+    timerInterval = setInterval(updateTimer, 1000);
+    updateTimer();
+  }
+
+  function updateTimer() {
+    const elapsed = Math.floor((Date.now() - activeStart) / 1000);
+    const h = Math.floor(elapsed / 3600);
+    const m = Math.floor((elapsed % 3600) / 60);
+    const s = elapsed % 60;
+    const str = h > 0
+      ? `${h}:${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}`
+      : `${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}`;
+    document.getElementById("timer-val")?.innerText && (document.getElementById("timer-val").innerText = str);
+  }
+
+  function fmtMins(m) {
+    const h = Math.floor(m / 60), mm = m % 60;
+    return h > 0 ? `${h}ч ${mm}м` : `${mm}м`;
+  }
+
+  async function loadToday() {
+    const res = await fetch("/api/today", { headers });
+    const data = await res.json();
+
+    const card = document.getElementById("status-card");
+    const startFlow = document.getElementById("start-flow");
+    const stopFlow = document.getElementById("stop-flow");
+
+    if (data.active) {
+      clearInterval(timerInterval);
+      card.innerHTML = `
+        <div class="status-label">Идёт сессия</div>
+        <div class="status-cat">${data.active.category}</div>
+        <div class="status-time" id="timer-val">00:00</div>`;
+      startTimer(data.active.start);
+      startFlow.classList.add("hidden");
+      stopFlow.classList.remove("hidden");
+    } else {
+      clearInterval(timerInterval);
+      card.innerHTML = `<div class="status-idle">Нет активной сессии</div>`;
+      startFlow.classList.remove("hidden");
+      stopFlow.classList.add("hidden");
+      selectedCat = null;
+      document.querySelectorAll(".cat-btn").forEach(b => b.classList.remove("selected"));
+      document.getElementById("btn-start").classList.add("btn-disabled");
+    }
+
+    // Total
+    document.getElementById("total-time").innerText =
+      data.total_minutes > 0 ? fmtMins(data.total_minutes) : "—";
+
+    // Sessions list
+    const list = document.getElementById("sessions-list");
+    if (!data.sessions.length) {
+      list.innerHTML = `<div class="empty">Нет записей</div>`;
+    } else {
+      list.innerHTML = data.sessions.map(s => `
+        <div class="session-item">
+          <div class="session-time">${s.start}</div>
+          <div class="session-info">
+            <div class="session-cat">${s.category}</div>
+            ${s.description ? `<div class="session-desc">${s.description}</div>` : ""}
+          </div>
+          <div class="session-dur">${fmtMins(s.duration)}</div>
+        </div>`).join("");
+    }
+  }
+
+  // Week
+  const CAT_COLORS = {
+    "💻 Код": "#4299e1",
+    "🤝 Митинг": "#ed8936",
+    "📚 Обучение": "#48bb78",
+    "☕ Перерыв": "#a0aec0",
+    "🔧 Другое": "#9f7aea",
+  };
+
+  async function loadWeek() {
+    const res = await fetch("/api/week", { headers });
+    const data = await res.json();
+    const days = data.days;
+
+    const maxMins = Math.max(...days.map(d => d.total_minutes), 1);
+    const barsEl = document.getElementById("week-bars");
+    const today = new Date().toISOString().slice(0, 10);
+
+    barsEl.innerHTML = days.map(d => {
+      const pct = Math.round((d.total_minutes / maxMins) * 100);
+      const isToday = d.date === today;
+      const h = Math.floor(d.total_minutes / 60);
+      const m = d.total_minutes % 60;
+      const val = d.total_minutes > 0 ? (h > 0 ? `${h}ч` : `${m}м`) : "";
+      return `
+        <div class="bar-col">
+          <div class="bar-val">${val}</div>
+          <div class="bar${isToday ? " today" : ""}" style="height:${pct}%"></div>
+          <div class="bar-label">${d.label}</div>
+        </div>`;
+    }).join("");
+
+    // Category breakdown (sum across week)
+    const catTotals = {};
+    days.forEach(d => {
+      Object.entries(d.categories).forEach(([cat, mins]) => {
+        catTotals[cat] = (catTotals[cat] || 0) + mins;
+      });
+    });
+
+    const totalAll = Object.values(catTotals).reduce((a, b) => a + b, 0);
+    const breakdown = document.getElementById("cat-breakdown");
+
+    if (!totalAll) {
+      breakdown.innerHTML = `<div class="empty">Нет данных</div>`;
+      return;
+    }
+
+    const sorted = Object.entries(catTotals).sort((a, b) => b[1] - a[1]);
+    breakdown.innerHTML = sorted.map(([cat, mins]) => {
+      const pct = Math.round(mins / totalAll * 100);
+      const color = CAT_COLORS[cat] || "#a0aec0";
+      return `
+        <div class="cat-row">
+          <div class="cat-dot" style="background:${color}"></div>
+          <div class="cat-name">${cat}</div>
+          <div class="cat-pct">${pct}%</div>
+          <div class="cat-mins">${fmtMins(mins)}</div>
+        </div>`;
+    }).join("");
+  }
+
+  loadToday();
+  setInterval(loadToday, 30000);
+</script>
+</body>
+</html>

@@ -1,0 +1,116 @@
+"""FastAPI backend for the Tracker Mini App."""
+import hashlib
+import hmac
+import json
+import os
+from datetime import date, datetime, timedelta
+from urllib.parse import parse_qsl, unquote
+
+from fastapi import FastAPI, Header, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
+from pydantic import BaseModel
+
+import db
+
+BOT_TOKEN = os.environ["BOT_TOKEN"]
+CHAT_ID = int(os.environ.get("CHAT_ID", 0))
+
+app = FastAPI()
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+
+def verify_init_data(init_data: str) -> int:
+    parsed = dict(parse_qsl(init_data, strict_parsing=True))
+    check_str = "\n".join(f"{k}={v}" for k, v in sorted(parsed.items()) if k != "hash")
+    secret = hmac.new(b"WebAppData", BOT_TOKEN.encode(), hashlib.sha256).digest()
+    expected = hmac.new(secret, check_str.encode(), hashlib.sha256).hexdigest()
+    if not hmac.compare_digest(expected, parsed.get("hash", "")):
+        raise HTTPException(status_code=401, detail="Invalid initData")
+    user_id = json.loads(unquote(parsed["user"]))["id"]
+    if user_id != CHAT_ID:
+        raise HTTPException(status_code=403)
+    return CHAT_ID
+
+
+@app.get("/")
+async def index():
+    return FileResponse("static/index.html")
+
+
+@app.get("/api/today")
+async def get_today(x_init_data: str = Header(default="")):
+    user_id = verify_init_data(x_init_data) if x_init_data else CHAT_ID
+    sessions = await db.get_today_sessions(user_id)
+    active = await db.get_active_session(user_id)
+
+    active_data = None
+    if active:
+        _, cat, start = active
+        elapsed = int((datetime.now() - datetime.fromisoformat(start)).total_seconds())
+        active_data = {"category": cat, "start": start, "elapsed_seconds": elapsed}
+
+    result = []
+    for cat, start, end, desc, dur in sessions:
+        result.append({
+            "category": cat,
+            "start": datetime.fromisoformat(start).strftime("%H:%M"),
+            "end": datetime.fromisoformat(end).strftime("%H:%M") if end else None,
+            "description": desc,
+            "duration": dur,
+        })
+
+    total = sum(s[4] for s in sessions if s[4])
+    return {"sessions": result, "active": active_data, "total_minutes": total}
+
+
+@app.get("/api/week")
+async def get_week(x_init_data: str = Header(default="")):
+    user_id = verify_init_data(x_init_data) if x_init_data else CHAT_ID
+
+    days = []
+    for i in range(6, -1, -1):
+        d = (date.today() - timedelta(days=i)).isoformat()
+        async with __import__("aiosqlite").connect(db.DB_PATH) as conn:
+            cur = await conn.execute("""
+                SELECT category, SUM(duration_minutes)
+                FROM sessions
+                WHERE user_id = ? AND date = ? AND end_time IS NOT NULL
+                GROUP BY category
+            """, (user_id, d))
+            rows = await cur.fetchall()
+
+        total = sum(r[1] for r in rows if r[1])
+        cats = {r[0]: r[1] for r in rows if r[1]}
+        label = (date.today() - timedelta(days=i)).strftime("%a")
+        days.append({"date": d, "label": label, "total_minutes": total, "categories": cats})
+
+    return {"days": days}
+
+
+class StartBody(BaseModel):
+    category: str
+
+class StopBody(BaseModel):
+    description: str = ""
+
+
+@app.post("/api/start")
+async def start(body: StartBody, x_init_data: str = Header(default="")):
+    user_id = verify_init_data(x_init_data) if x_init_data else CHAT_ID
+    await db.start_session(user_id, body.category)
+    return {"ok": True}
+
+
+@app.post("/api/stop")
+async def stop(body: StopBody, x_init_data: str = Header(default="")):
+    user_id = verify_init_data(x_init_data) if x_init_data else CHAT_ID
+    desc = body.description.strip() or None
+    duration = await db.stop_session(user_id, desc)
+    return {"ok": True, "duration": duration}

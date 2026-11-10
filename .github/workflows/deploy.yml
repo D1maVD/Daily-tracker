@@ -37,10 +37,11 @@ jobs:
       - name: Health check
         run: |
           set -euo pipefail
-          sleep 5
-          if docker ps --filter "name=tracker-bot" --filter "status=running" | grep tracker-bot; then
-            echo "Контейнер запущен"
-          else
-            docker logs --tail 50 tracker-bot || true
-            exit 1
-          fi
+          echo "Жду запуска контейнеров..."
+          for i in $(seq 1 15); do
+            code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 5 http://127.0.0.1:8003 || true)
+            [ "$code" = "200" ] && echo "API отвечает (попытка $i)" && exit 0
+            echo "попытка $i: $code"; sleep 2
+          done
+          docker logs --tail 50 tracker-bot-api || true
+          exit 1
