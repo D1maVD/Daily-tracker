@@ -146,6 +146,20 @@
       outline: none; font-family: inherit;
     }
 
+    .period-tabs { display: flex; gap: 6px; margin-bottom: 12px; }
+    .period-tab {
+      flex: 1; border: none; border-radius: 10px; padding: 8px;
+      font-size: 13px; font-weight: 600; cursor: pointer;
+      background: var(--sec); transition: all .15s;
+    }
+    .period-tab.active { background: var(--btn); color: var(--btn-text); }
+
+    .day-detail { margin-top: 12px; }
+    .day-detail-title { font-size: 13px; font-weight: 700; margin-bottom: 8px; color: var(--hint); text-transform: uppercase; letter-spacing: .5px; }
+
+    .bar-col { cursor: pointer; }
+    .bar-col:active .bar { opacity: .6; }
+
     .empty { text-align: center; color: var(--hint); padding: 24px 0; font-size: 14px; }
     .hidden { display: none !important; }
   </style>
@@ -188,9 +202,18 @@
 
 <!-- Week -->
 <div class="page" id="page-week">
+  <div class="period-tabs">
+    <button class="period-tab active" data-period="week">Неделя</button>
+    <button class="period-tab" data-period="month">Месяц</button>
+    <button class="period-tab" data-period="year">Год</button>
+  </div>
   <div class="card">
-    <div class="card-title">Часы за 7 дней</div>
+    <div class="card-title" id="stats-title">Часы за 7 дней</div>
     <div class="week-bars" id="week-bars"></div>
+  </div>
+  <div class="card hidden" id="day-detail-card">
+    <div class="day-detail-title" id="day-detail-title"></div>
+    <div id="day-detail-list"></div>
   </div>
   <div class="card">
     <div class="card-title">По категориям</div>
@@ -251,7 +274,7 @@
       document.querySelectorAll(".page").forEach(p => p.classList.remove("active"));
       btn.classList.add("active");
       document.getElementById("page-" + btn.dataset.page).classList.add("active");
-      if (btn.dataset.page === "week") loadWeek();
+      if (btn.dataset.page === "week") loadStats(currentPeriod);
       if (btn.dataset.page === "settings") loadCategories();
     });
   });
@@ -455,40 +478,91 @@
 
   // Week
   const CAT_COLORS = ["#4299e1","#ed8936","#48bb78","#a0aec0","#9f7aea","#f56565","#38b2ac"];
+  const PERIOD_TITLES = { week: "Часы за 7 дней", month: "Часы за 30 дней", year: "Часы за год" };
+  let currentPeriod = "week";
+  let statsData = [];
 
-  async function loadWeek() {
-    const res = await api("/api/week");
+  // Period tabs
+  document.querySelectorAll(".period-tab").forEach(btn => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll(".period-tab").forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
+      currentPeriod = btn.dataset.period;
+      document.getElementById("day-detail-card").classList.add("hidden");
+      loadStats(currentPeriod);
+    });
+  });
+
+  async function loadStats(period = "week") {
+    const res = await api("/api/stats", { period });
     const data = await res.json();
-    const days = data.days;
-    const maxMins = Math.max(...days.map(d => d.total_minutes), 1);
+    statsData = data.bars;
+    document.getElementById("stats-title").textContent = PERIOD_TITLES[period];
+    renderBars(statsData, period);
+    renderBreakdown(statsData);
+  }
+
+  function renderBars(bars, period) {
+    const maxMins = Math.max(...bars.map(b => b.total_minutes), 1);
     const today = new Date().toISOString().slice(0, 10);
 
-    document.getElementById("week-bars").innerHTML = days.map(d => {
-      const pct = Math.round((d.total_minutes / maxMins) * 100);
-      const isToday = d.date === today;
-      const h = Math.floor(d.total_minutes / 60);
-      const val = d.total_minutes > 0 ? (h > 0 ? `${h}ч` : `${d.total_minutes}м`) : "";
+    document.getElementById("week-bars").innerHTML = bars.map((b, i) => {
+      const pct = Math.round((b.total_minutes / maxMins) * 100);
+      const isToday = b.is_current;
+      const h = Math.floor(b.total_minutes / 60);
+      const val = b.total_minutes > 0 ? (h > 0 ? `${h}ч` : `${b.total_minutes}м`) : "";
       return `
-        <div class="bar-col">
+        <div class="bar-col" data-date="${b.date}" data-idx="${i}">
           <div class="bar-val">${val}</div>
-          <div class="bar${isToday ? " today" : ""}" style="height:${pct}%"></div>
-          <div class="bar-label">${d.label}</div>
+          <div class="bar${isToday ? " today" : ""}" style="height:${Math.max(pct,2)}%"></div>
+          <div class="bar-label">${b.label}</div>
         </div>`;
     }).join("");
 
-    const catTotals = {};
-    days.forEach(d => Object.entries(d.categories).forEach(([cat, mins]) => {
-      catTotals[cat] = (catTotals[cat] || 0) + mins;
-    }));
+    document.querySelectorAll(".bar-col").forEach(col => {
+      col.addEventListener("click", () => openDayDetail(col.dataset.date));
+    });
+  }
 
-    const totalAll = Object.values(catTotals).reduce((a, b) => a + b, 0);
-    const breakdown = document.getElementById("cat-breakdown");
+  async function openDayDetail(dateStr) {
+    const res = await api("/api/day", { date: dateStr });
+    const data = await res.json();
+    const card = document.getElementById("day-detail-card");
+    const title = document.getElementById("day-detail-title");
+    const list = document.getElementById("day-detail-list");
 
-    if (!totalAll) {
-      breakdown.innerHTML = `<div class="empty">Нет данных</div>`;
+    const dt = new Date(dateStr + "T00:00:00");
+    const label = dt.toLocaleDateString("ru", { day: "numeric", month: "long" });
+    title.textContent = `${label} — ${fmtMins(data.total_minutes)}`;
+    card.classList.remove("hidden");
+
+    if (!data.sessions.length) {
+      list.innerHTML = `<div class="empty">Нет записей</div>`;
       return;
     }
+    list.innerHTML = data.sessions.map(s => `
+      <div class="session-item">
+        <div class="session-time">${fmtTime(s.start)}</div>
+        <div class="session-info">
+          <div class="session-cat">${s.category}</div>
+          ${s.description ? `<div class="session-desc">${s.description}</div>` : ""}
+        </div>
+        <div class="session-dur">${fmtMins(s.duration)}</div>
+      </div>`).join("");
 
+    card.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
+  function renderBreakdown(bars) {
+    const catTotals = {};
+    bars.forEach(b => {
+      if (b.categories) Object.entries(b.categories).forEach(([cat, mins]) => {
+        catTotals[cat] = (catTotals[cat] || 0) + mins;
+      });
+    });
+    const totalAll = Object.values(catTotals).reduce((a, b) => a + b, 0);
+    const breakdown = document.getElementById("cat-breakdown");
+    if (!totalAll) { breakdown.innerHTML = `<div class="empty">Нет данных</div>`; return; }
     const sorted = Object.entries(catTotals).sort((a, b) => b[1] - a[1]);
     breakdown.innerHTML = sorted.map(([cat, mins], i) => {
       const pct = Math.round(mins / totalAll * 100);

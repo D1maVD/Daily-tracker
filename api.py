@@ -86,25 +86,82 @@ async def get_today(body: Base):
     return {"sessions": result, "active": active_data, "total_minutes": total}
 
 
-@app.post("/api/week")
-async def get_week(body: Base):
+class StatsPeriodBody(Base):
+    period: str = "week"  # week | month | year
+
+class DayBody(Base):
+    date: str
+
+
+@app.post("/api/stats")
+async def get_stats(body: StatsPeriodBody):
     user_id = verify(body.init_data)
-    days = []
-    for i in range(6, -1, -1):
-        d = (date.today() - timedelta(days=i)).isoformat()
-        async with aiosqlite.connect(db.DB_PATH) as conn:
+    today = date.today()
+    async with aiosqlite.connect(db.DB_PATH) as conn:
+
+        if body.period == "year":
             cur = await conn.execute("""
-                SELECT category, SUM(duration_minutes)
+                SELECT strftime('%Y-%m', date) as m, SUM(duration_minutes)
                 FROM sessions
-                WHERE user_id = ? AND date = ? AND end_time IS NOT NULL
-                GROUP BY category
-            """, (user_id, d))
+                WHERE user_id = ? AND end_time IS NOT NULL
+                  AND date >= date('now', '-11 months', 'start of month')
+                GROUP BY m ORDER BY m
+            """, (user_id,))
             rows = await cur.fetchall()
-        total = sum(r[1] for r in rows if r[1])
-        cats = {r[0]: r[1] for r in rows if r[1]}
-        label = (date.today() - timedelta(days=i)).strftime("%a")
-        days.append({"date": d, "label": label, "total_minutes": total, "categories": cats})
-    return {"days": days}
+            months = {r[0]: r[1] for r in rows if r[1]}
+            result = []
+            for i in range(11, -1, -1):
+                from dateutil.relativedelta import relativedelta
+                d = (today.replace(day=1) - relativedelta(months=i))
+                key = d.strftime("%Y-%m")
+                result.append({
+                    "date": key,
+                    "label": d.strftime("%b"),
+                    "total_minutes": months.get(key, 0),
+                    "is_current": i == 0,
+                })
+            return {"bars": result, "period": "year"}
+
+        days_count = 30 if body.period == "month" else 7
+        result = []
+        for i in range(days_count - 1, -1, -1):
+            d = (today - timedelta(days=i)).isoformat()
+            cur = await conn.execute("""
+                SELECT SUM(duration_minutes) FROM sessions
+                WHERE user_id = ? AND date = ? AND end_time IS NOT NULL
+            """, (user_id, d))
+            row = await cur.fetchone()
+            total = row[0] or 0
+            dt = today - timedelta(days=i)
+            if body.period == "month":
+                label = str(dt.day) if dt.day % 5 == 0 or i == 0 or i == days_count - 1 else ""
+            else:
+                label = dt.strftime("%a")
+            result.append({"date": d, "label": label, "total_minutes": total, "is_current": i == 0})
+
+    return {"bars": result, "period": body.period}
+
+
+@app.post("/api/day")
+async def get_day_sessions(body: DayBody):
+    user_id = verify(body.init_data)
+    async with aiosqlite.connect(db.DB_PATH) as conn:
+        cur = await conn.execute("""
+            SELECT id, category, start_time, end_time, description, duration_minutes
+            FROM sessions
+            WHERE user_id = ? AND date = ? AND end_time IS NOT NULL
+            ORDER BY start_time
+        """, (user_id, body.date))
+        rows = await cur.fetchall()
+    total = sum(r[5] for r in rows if r[5])
+    return {
+        "date": body.date,
+        "total_minutes": total,
+        "sessions": [
+            {"id": r[0], "category": r[1], "start": r[2], "end": r[3], "description": r[4], "duration": r[5]}
+            for r in rows
+        ]
+    }
 
 
 @app.post("/api/categories/list")
