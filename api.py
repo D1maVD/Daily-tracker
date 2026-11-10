@@ -36,10 +36,7 @@ def verify_init_data(init_data: str) -> int:
     expected = hmac.new(secret, check_str.encode(), hashlib.sha256).hexdigest()
     if not hmac.compare_digest(expected, parsed.get("hash", "")):
         raise HTTPException(status_code=401, detail="Invalid initData")
-    user_id = json.loads(unquote(parsed["user"]))["id"]
-    if user_id != CHAT_ID:
-        raise HTTPException(status_code=403)
-    return CHAT_ID
+    return json.loads(unquote(parsed["user"]))["id"]
 
 
 @app.get("/")
