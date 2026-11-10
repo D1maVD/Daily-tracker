@@ -1,3 +1,5 @@
+import html
+
 from aiogram import Router, F
 from aiogram.types import Message, CallbackQuery
 from aiogram.filters import Command
@@ -98,12 +100,12 @@ async def day_summary(message: Message):
     h, m = divmod(total, 60)
     total_str = f"{h}ч {m}мин" if h else f"{m}мин"
 
-    lines = [f"📊 *Сегодня:* {total_str}\n"]
-    for cat, start, _, desc, dur in sessions:
+    lines = [f"📊 <b>Сегодня:</b> {total_str}\n"]
+    for _, cat, start, _end, desc, dur in sessions:
         t = datetime.fromisoformat(start).strftime("%H:%M")
-        line = f"• {t} {cat} — {dur}мин"
+        line = f"• {t} {html.escape(cat)} — {dur}мин"
         if desc:
-            line += f"\n  _{desc}_"
+            line += f"\n  <i>{html.escape(desc)}</i>"
         lines.append(line)
 
-    await message.answer("\n".join(lines), parse_mode="Markdown")
+    await message.answer("\n".join(lines), parse_mode="HTML")
