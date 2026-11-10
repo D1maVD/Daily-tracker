@@ -94,7 +94,7 @@ async def day_summary(message: Message):
         await message.answer("Сегодня нет завершённых сессий.")
         return
 
-    total = sum(s[4] for s in sessions if s[4])
+    total = sum(s[5] for s in sessions if s[5])
     h, m = divmod(total, 60)
     total_str = f"{h}ч {m}мин" if h else f"{m}мин"
 

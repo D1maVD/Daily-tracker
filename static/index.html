@@ -270,6 +270,14 @@
     });
   }
 
+  function esc(str) {
+    return String(str ?? "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;");
+  }
+
   function fmtTime(isoStr) {
     if (!isoStr) return "";
     return new Date(isoStr).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
@@ -315,7 +323,7 @@
     const grid = document.getElementById("cat-grid");
     grid.innerHTML = categories.map((c, i) => {
       const isLast = i === categories.length - 1 && categories.length % 2 !== 0;
-      return `<button class="cat-btn${isLast ? " span2" : ""}" data-name="${c.name}">${c.name}</button>`;
+      return `<button class="cat-btn${isLast ? " span2" : ""}" data-name="${esc(c.name)}">${esc(c.name)}</button>`;
     }).join("");
 
     grid.querySelectorAll(".cat-btn").forEach(btn => {
@@ -336,8 +344,8 @@
     }
     list.innerHTML = categories.map(c => `
       <div class="settings-item">
-        <div class="settings-name">${c.name}</div>
-        <button class="del-btn" data-id="${c.id}">✕</button>
+        <div class="settings-name">${esc(c.name)}</div>
+        <button class="del-btn" data-id="${esc(c.id)}">✕</button>
       </div>`).join("");
 
     list.querySelectorAll(".del-btn").forEach(btn => {
@@ -445,7 +453,7 @@
       clearInterval(timerInterval);
       card.innerHTML = `
         <div class="status-label">Идёт сессия</div>
-        <div class="status-cat">${data.active.category}</div>
+        <div class="status-cat">${esc(data.active.category)}</div>
         <div class="status-time" id="timer-val">00:00</div>`;
       startTimer(data.active.start);
       startFlow.classList.add("hidden");
@@ -471,11 +479,11 @@
         <div class="session-item">
           <div class="session-time">${fmtTime(s.start)}</div>
           <div class="session-info">
-            <div class="session-cat">${s.category}</div>
-            ${s.description ? `<div class="session-desc">${s.description}</div>` : ""}
+            <div class="session-cat">${esc(s.category)}</div>
+            ${s.description ? `<div class="session-desc">${esc(s.description)}</div>` : ""}
           </div>
           <div class="session-dur">${fmtMins(s.duration)}</div>
-          <button class="del-btn" data-id="${s.id}">✕</button>
+          <button class="del-btn" data-id="${esc(s.id)}">✕</button>
         </div>`).join("");
 
       list.querySelectorAll(".del-btn").forEach(btn => {
@@ -555,8 +563,8 @@
       <div class="session-item">
         <div class="session-time">${fmtTime(s.start)}</div>
         <div class="session-info">
-          <div class="session-cat">${s.category}</div>
-          ${s.description ? `<div class="session-desc">${s.description}</div>` : ""}
+          <div class="session-cat">${esc(s.category)}</div>
+          ${s.description ? `<div class="session-desc">${esc(s.description)}</div>` : ""}
         </div>
         <div class="session-dur">${fmtMins(s.duration)}</div>
       </div>`).join("");

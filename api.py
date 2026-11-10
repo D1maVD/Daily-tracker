@@ -3,6 +3,7 @@ import hashlib
 import hmac
 import json
 import os
+import time
 from datetime import date, datetime, timedelta
 from urllib.parse import parse_qsl, unquote
 
@@ -37,6 +38,9 @@ def verify(init_data: str) -> int:
         expected = hmac.new(secret, check_str.encode(), hashlib.sha256).hexdigest()
         if not hmac.compare_digest(expected, parsed.get("hash", "")):
             raise HTTPException(status_code=401, detail="Invalid initData")
+        auth_date = int(parsed.get("auth_date", 0))
+        if time.time() - auth_date > 86400:
+            raise HTTPException(status_code=401, detail="initData expired")
         return json.loads(unquote(parsed["user"]))["id"]
     except HTTPException:
         raise
@@ -159,7 +163,7 @@ async def list_categories(request: Request):
 async def add_category(request: Request):
     b = await _body(request)
     user_id = verify(b.get("init_data", ""))
-    name = b.get("name", "").strip()
+    name = b.get("name", "").strip()[:50]
     if not name:
         raise HTTPException(status_code=400, detail="Name is required")
     cat_id = await db.add_category(user_id, name)
