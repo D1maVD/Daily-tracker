@@ -29,17 +29,9 @@ jobs:
           CHAT_ID: ${{ secrets.CHAT_ID }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           DAILY_SUMMARY_TIME: ${{ secrets.DAILY_SUMMARY_TIME }}
-          DOCKER_CONFIG: /tmp/.docker-ci
         run: |
           set -euo pipefail
-          mkdir -p /tmp/.docker-ci
-          python3 -c "
-import json, os
-src = os.path.expanduser('~/.docker/config.json')
-c = json.load(open(src)) if os.path.exists(src) else {}
-c.pop('credsStore', None)
-json.dump(c, open('/tmp/.docker-ci/config.json', 'w'))
-"
+          export PATH="/Applications/Docker.app/Contents/Resources/bin:$PATH"
           cd "$HOME/projects/tracker-bot"
           docker compose up -d --build --force-recreate
 
