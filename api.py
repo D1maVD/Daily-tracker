@@ -16,12 +16,19 @@ import db
 
 BOT_TOKEN = os.environ["BOT_TOKEN"]
 
-app = FastAPI()
+from contextlib import asynccontextmanager
+
+@asynccontextmanager
+async def lifespan(app):
+    await db.init_db()
+    yield
+
+app = FastAPI(lifespan=lifespan)
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
 
 async def _verified_user(b: dict) -> int:
-    user_id = await _verified_user(b)
+    user_id = verify(b.get("init_data", ""))
     if not await db.is_consented(user_id):
         raise HTTPException(status_code=403, detail="consent_required")
     return user_id

@@ -44,6 +44,10 @@ async def init_db():
                 sort_order INTEGER DEFAULT 0
             )
         """)
+        await db.execute("""
+            INSERT OR IGNORE INTO users (user_id, consented_at)
+            SELECT DISTINCT user_id, MIN(start_time) FROM sessions GROUP BY user_id
+        """)
         await db.commit()
 
 
