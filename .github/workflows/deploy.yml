@@ -33,7 +33,13 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p /tmp/.docker-ci
-          echo '{}' > /tmp/.docker-ci/config.json
+          python3 -c "
+import json, os
+src = os.path.expanduser('~/.docker/config.json')
+c = json.load(open(src)) if os.path.exists(src) else {}
+c.pop('credsStore', None)
+json.dump(c, open('/tmp/.docker-ci/config.json', 'w'))
+"
           cd "$HOME/projects/tracker-bot"
           docker compose up -d --build --force-recreate
 
